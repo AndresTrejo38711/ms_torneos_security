@@ -58,4 +58,12 @@ public class User {
             nullable = false
     )
     private boolean twoFactorEnabled = false;
+
+    @OneToOne(
+            mappedBy = "user",
+            cascade = CascadeType.ALL,
+            orphanRemoval = true,
+            fetch = FetchType.LAZY
+    )
+    private Profile profile;
 }
