@@ -2,6 +2,7 @@ package com.uc.ms_torneos_security.service;
 
 import com.uc.ms_torneos_security.dto.user.CreateUserDTO;
 import com.uc.ms_torneos_security.dto.user.UpdateUserDTO;
+import com.uc.ms_torneos_security.dto.user.UserDetailResponseDTO;
 import com.uc.ms_torneos_security.dto.user.UserResponseDTO;
 import com.uc.ms_torneos_security.entity.AuthProvider;
 import com.uc.ms_torneos_security.entity.User;
@@ -56,6 +57,15 @@ public class UserService {
     public UserResponseDTO findById(Long id) {
         User user = findUser(id);
         return userMapper.toResponseDTO(user);
+    }
+
+    public UserDetailResponseDTO findDetailById(Long id) {
+        User user = userRepository.findWithProfileById(id)
+                .orElseThrow(() -> new ApplicationException(
+                        ErrorCase.NOT_FOUND,
+                        "Usuario no encontrado con id: " + id
+                ));
+        return userMapper.toDetailResponseDTO(user);
     }
 
     public UserResponseDTO update(Long id, UpdateUserDTO dto) {

@@ -1,7 +1,10 @@
 package com.uc.ms_torneos_security.repository;
 
 import com.uc.ms_torneos_security.entity.User;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.Optional;
 
 public interface UserRepository extends JpaRepository<User, Long> {
 
@@ -11,4 +14,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
             String email,
             Long id
     );
+
+    @EntityGraph(attributePaths = {"profile"})
+    Optional<User> findWithProfileById(Long id);
 }
