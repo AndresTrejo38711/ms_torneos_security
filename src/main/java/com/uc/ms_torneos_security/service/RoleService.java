@@ -8,6 +8,7 @@ import com.uc.ms_torneos_security.exception.ApplicationException;
 import com.uc.ms_torneos_security.exception.ErrorCase;
 import com.uc.ms_torneos_security.mapper.RoleMapper;
 import com.uc.ms_torneos_security.repository.RoleRepository;
+import com.uc.ms_torneos_security.repository.UserRoleRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -18,6 +19,8 @@ import java.util.List;
 public class RoleService {
 
     private final RoleRepository roleRepository;
+
+    private final UserRoleRepository userRoleRepository;
 
     private final RoleMapper roleMapper;
 
@@ -56,9 +59,14 @@ public class RoleService {
         return roleMapper.toResponseDTO(updatedRole);
     }
 
-    // La validación "no eliminar un rol asignado a usuarios" se agrega con UserRole (HU-SE-04).
     public void delete(Long id) {
         Role role = findRole(id);
+        if (userRoleRepository.existsByRoleId(id)) {
+            throw new ApplicationException(
+                    ErrorCase.INVALID_OPERATION,
+                    "No se puede eliminar el rol porque está asignado a usuarios"
+            );
+        }
         roleRepository.delete(role);
     }
 
