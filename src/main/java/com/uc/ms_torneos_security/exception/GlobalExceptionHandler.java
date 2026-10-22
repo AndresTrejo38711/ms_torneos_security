@@ -2,6 +2,7 @@ package com.uc.ms_torneos_security.exception;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -59,6 +60,19 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
                 .body(errors);
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<Map<String, String>> handleNotReadable(
+            HttpMessageNotReadableException exception) {
+
+        Map<String, String> error = new LinkedHashMap<>();
+        error.put("errorCase", "INVALID_BODY");
+        error.put("message", "El cuerpo de la petición no es válido: revisa el formato JSON y los valores permitidos de cada campo");
+
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(error);
     }
 
     @ExceptionHandler(Exception.class)
