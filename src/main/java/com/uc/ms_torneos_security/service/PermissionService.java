@@ -9,6 +9,7 @@ import com.uc.ms_torneos_security.exception.ApplicationException;
 import com.uc.ms_torneos_security.exception.ErrorCase;
 import com.uc.ms_torneos_security.mapper.PermissionMapper;
 import com.uc.ms_torneos_security.repository.PermissionRepository;
+import com.uc.ms_torneos_security.repository.RolePermissionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -20,6 +21,8 @@ public class PermissionService {
 
     private final PermissionRepository permissionRepository;
 
+    private final RolePermissionRepository rolePermissionRepository;
+
     private final PermissionMapper permissionMapper;
 
     public PermissionResponseDTO create(CreatePermissionDTO dto) {
@@ -29,13 +32,15 @@ public class PermissionService {
         if (permissionRepository.existsByUrlAndMethod(dto.getUrl(), dto.getMethod())) {
             throw duplicatedEndpoint(dto);
         }
+        permissionRepository.findFirstByModel(dto.getModel())
+                .ifPresent(other -> validateSameModule(other, dto));
         Permission permission = permissionMapper.toEntity(dto);
         Permission savedPermission = permissionRepository.save(permission);
         return permissionMapper.toResponseDTO(savedPermission);
     }
 
     public List<PermissionResponseDTO> findAll() {
-        List<Permission> permissions = permissionRepository.findAllByOrderByModelAscOperationAsc();
+        List<Permission> permissions = permissionRepository.findAllByOrderByModuleAscModelAscOperationAsc();
         return permissionMapper.toResponseDTOList(permissions);
     }
 
@@ -52,14 +57,21 @@ public class PermissionService {
         if (permissionRepository.existsByUrlAndMethodAndIdNot(dto.getUrl(), dto.getMethod(), id)) {
             throw duplicatedEndpoint(dto);
         }
+        permissionRepository.findFirstByModelAndIdNot(dto.getModel(), id)
+                .ifPresent(other -> validateSameModule(other, dto));
         permissionMapper.updateEntity(dto, permission);
         Permission updatedPermission = permissionRepository.save(permission);
         return permissionMapper.toResponseDTO(updatedPermission);
     }
 
-    // La validación "no eliminar un permiso asignado a roles" se agrega con RolePermission (HU-SE-06).
     public void delete(Long id) {
         Permission permission = findPermission(id);
+        if (rolePermissionRepository.existsByPermissionId(id)) {
+            throw new ApplicationException(
+                    ErrorCase.INVALID_OPERATION,
+                    "No se puede eliminar el permiso porque está asignado a roles"
+            );
+        }
         permissionRepository.delete(permission);
     }
 
@@ -69,6 +81,16 @@ public class PermissionService {
                         ErrorCase.NOT_FOUND,
                         "Permiso no encontrado con id: " + id
                 ));
+    }
+
+    // Un recurso pertenece a un solo módulo: todas sus operaciones deben quedar en el mismo grupo de la matriz.
+    private void validateSameModule(Permission other, BasePermissionDTO dto) {
+        if (other.getModule() != dto.getModule()) {
+            throw new ApplicationException(
+                    ErrorCase.INVALID_OPERATION,
+                    "El recurso " + dto.getModel() + " pertenece al módulo " + other.getModule()
+            );
+        }
     }
 
     private ApplicationException duplicatedOperation(BasePermissionDTO dto) {

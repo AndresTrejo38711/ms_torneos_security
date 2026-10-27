@@ -1,6 +1,7 @@
 package com.uc.ms_torneos_security.dto.permission;
 
 import com.uc.ms_torneos_security.entity.HttpMethodType;
+import com.uc.ms_torneos_security.entity.ModuleType;
 import com.uc.ms_torneos_security.entity.Operation;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -13,6 +14,11 @@ import lombok.Setter;
 @Getter
 @Setter
 public abstract class BasePermissionDTO {
+
+    @NotNull(
+            message = "El módulo es obligatorio (ADMINISTRACION, GESTION_DEPORTIVA, COMERCIAL, INFRAESTRUCTURA o REPORTES)"
+    )
+    private ModuleType module;
 
     @NotBlank(
             message = "El modelo o recurso es obligatorio"

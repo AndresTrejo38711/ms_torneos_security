@@ -13,6 +13,7 @@ public class PermissionMapper {
 
     public Permission toEntity(CreatePermissionDTO dto) {
         Permission permission = new Permission();
+        permission.setModule(dto.getModule());
         permission.setModel(dto.getModel());
         permission.setOperation(dto.getOperation());
         permission.setUrl(dto.getUrl());
@@ -21,6 +22,7 @@ public class PermissionMapper {
     }
 
     public void updateEntity(UpdatePermissionDTO dto, Permission permission) {
+        permission.setModule(dto.getModule());
         permission.setModel(dto.getModel());
         permission.setOperation(dto.getOperation());
         permission.setUrl(dto.getUrl());
@@ -30,6 +32,7 @@ public class PermissionMapper {
     public PermissionResponseDTO toResponseDTO(Permission permission) {
         return new PermissionResponseDTO(
                 permission.getId(),
+                permission.getModule(),
                 permission.getModel(),
                 permission.getOperation(),
                 permission.getUrl(),

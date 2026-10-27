@@ -40,4 +40,14 @@ public class Role {
             fetch = FetchType.LAZY
     )
     private List<UserRole> userRoles = new ArrayList<>();
+
+    // Con cascade: la matriz de permisos es configuración del propio rol. Al eliminar el rol
+    // se borran sus asignaciones, pero los permisos siguen existiendo en el sistema.
+    @OneToMany(
+            mappedBy = "role",
+            cascade = CascadeType.ALL,
+            orphanRemoval = true,
+            fetch = FetchType.LAZY
+    )
+    private List<RolePermission> rolePermissions = new ArrayList<>();
 }
