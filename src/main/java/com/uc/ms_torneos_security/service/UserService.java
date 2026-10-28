@@ -27,6 +27,8 @@ public class UserService {
 
     private final PasswordEncoder passwordEncoder;
 
+    private final SessionService sessionService;
+
     public UserResponseDTO create(CreateUserDTO dto) {
         if (userRepository.existsByEmail(dto.getEmail())) {
             throw new ApplicationException(
@@ -101,6 +103,8 @@ public class UserService {
         }
         user.setEnabled(false);
         User updatedUser = userRepository.save(user);
+        // Un usuario desactivado pierde el acceso de inmediato, aunque tuviera un token vigente.
+        sessionService.closeAllByUser(id);
         return userMapper.toResponseDTO(updatedUser);
     }
 
