@@ -1,15 +1,18 @@
 package com.uc.ms_torneos_security.dto.permission;
 
-import com.uc.ms_torneos_security.entity.HttpMethodType;
 import com.uc.ms_torneos_security.entity.ModuleType;
 import com.uc.ms_torneos_security.entity.Operation;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 import lombok.Getter;
 import lombok.Setter;
+
+import java.util.List;
 
 @Getter
 @Setter
@@ -29,7 +32,7 @@ public abstract class BasePermissionDTO {
     )
     @Pattern(
             regexp = "^[a-z][a-z0-9-]*$",
-            message = "El modelo debe estar en minúsculas, sin espacios (ej.: users, user-roles)"
+            message = "El modelo debe estar en minúsculas, sin espacios (ej.: usuarios, asignacion-roles)"
     )
     private String model;
 
@@ -38,21 +41,12 @@ public abstract class BasePermissionDTO {
     )
     private Operation operation;
 
-    @NotBlank(
-            message = "La URL es obligatoria"
+    // @Valid revisa también las reglas de cada endpoint (URL y método).
+    @NotEmpty(
+            message = "El permiso debe tener al menos un endpoint (URL + método)"
     )
-    @Size(
-            max = 255,
-            message = "La URL debe tener máximo 255 caracteres"
-    )
-    @Pattern(
-            regexp = "^/\\S*$",
-            message = "La URL debe empezar por / y no tener espacios (ej.: /api/users/{id})"
-    )
-    private String url;
-
-    @NotNull(
-            message = "El método HTTP es obligatorio (GET, POST, PUT, PATCH o DELETE)"
-    )
-    private HttpMethodType method;
+    private List<
+            @Valid
+            @NotNull(message = "El endpoint no puede ser nulo")
+            EndpointRequestDTO> endpoints;
 }

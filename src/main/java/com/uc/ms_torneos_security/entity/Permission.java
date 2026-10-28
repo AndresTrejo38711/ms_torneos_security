@@ -15,10 +15,6 @@ import java.util.List;
                 @UniqueConstraint(
                         name = "uk_permission_model_operation",
                         columnNames = {"model", "operation"}
-                ),
-                @UniqueConstraint(
-                        name = "uk_permission_url_method",
-                        columnNames = {"url", "method"}
                 )
         }
 )
@@ -53,18 +49,15 @@ public class Permission {
     )
     private Operation operation;
 
-    @Column(
-            nullable = false,
-            length = 255
+    // Endpoints que habilita este permiso. Son parte del permiso:
+    // se crean, cambian y borran junto con él.
+    @OneToMany(
+            mappedBy = "permission",
+            cascade = CascadeType.ALL,
+            orphanRemoval = true,
+            fetch = FetchType.LAZY
     )
-    private String url;
-
-    @Enumerated(EnumType.STRING)
-    @Column(
-            nullable = false,
-            length = 10
-    )
-    private HttpMethodType method;
+    private List<PermissionEndpoint> endpoints = new ArrayList<>();
 
     // Sin cascade: un permiso asignado a roles no se puede eliminar (ver PermissionService.delete).
     @OneToMany(

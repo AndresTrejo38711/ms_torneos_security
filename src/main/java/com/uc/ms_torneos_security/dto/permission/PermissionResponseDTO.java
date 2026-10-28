@@ -1,9 +1,10 @@
 package com.uc.ms_torneos_security.dto.permission;
 
-import com.uc.ms_torneos_security.entity.HttpMethodType;
 import com.uc.ms_torneos_security.entity.ModuleType;
 import com.uc.ms_torneos_security.entity.Operation;
 import lombok.Value;
+
+import java.util.List;
 
 @Value
 public class PermissionResponseDTO {
@@ -16,7 +17,5 @@ public class PermissionResponseDTO {
 
     Operation operation;
 
-    String url;
-
-    HttpMethodType method;
+    List<EndpointResponseDTO> endpoints;
 }

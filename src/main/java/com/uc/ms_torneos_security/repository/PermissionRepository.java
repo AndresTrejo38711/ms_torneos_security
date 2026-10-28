@@ -1,8 +1,8 @@
 package com.uc.ms_torneos_security.repository;
 
-import com.uc.ms_torneos_security.entity.HttpMethodType;
 import com.uc.ms_torneos_security.entity.Operation;
 import com.uc.ms_torneos_security.entity.Permission;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -23,15 +23,9 @@ public interface PermissionRepository extends JpaRepository<Permission, Long> {
             Long id
     );
 
-    boolean existsByUrlAndMethod(
-            String url,
-            HttpMethodType method
-    );
-
-    boolean existsByUrlAndMethodAndIdNot(
-            String url,
-            HttpMethodType method,
-            Long id
+    Optional<Permission> findByModelAndOperation(
+            String model,
+            Operation operation
     );
 
     // Otro permiso del mismo recurso: dice a qué módulo pertenece ya ese recurso.
@@ -44,6 +38,7 @@ public interface PermissionRepository extends JpaRepository<Permission, Long> {
 
     // Agrupados por módulo y recurso. MySQL ordena los enum alfabéticamente;
     // el orden de módulos y operaciones de la matriz lo fija RolePermissionMapper.
+    @EntityGraph(attributePaths = {"endpoints"})
     List<Permission> findAllByOrderByModuleAscModelAscOperationAsc();
 
     // Permisos efectivos: basta con que AL MENOS UNO de los roles del usuario tenga el permiso.
