@@ -95,4 +95,13 @@ public class User {
             fetch = FetchType.LAZY
     )
     private List<Session> sessions = new ArrayList<>();
+
+    // Códigos para restablecer la contraseña (HU-SE-09). Se borran junto con el usuario.
+    @OneToMany(
+            mappedBy = "user",
+            cascade = CascadeType.ALL,
+            orphanRemoval = true,
+            fetch = FetchType.LAZY
+    )
+    private List<PasswordResetCode> passwordResetCodes = new ArrayList<>();
 }

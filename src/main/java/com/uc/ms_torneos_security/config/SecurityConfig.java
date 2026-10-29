@@ -45,6 +45,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login").permitAll()
                         // Pública: el segundo paso del login con 2FA, cuando aún no hay token.
                         .requestMatchers(HttpMethod.POST, "/api/auth/2fa/verify").permitAll()
+                        // Públicas: quien olvidó su contraseña no puede iniciar sesión.
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/auth/password/forgot", "/api/auth/password/reset").permitAll()
                         // Públicas: ida y vuelta con Google, GitHub o Microsoft.
                         .requestMatchers("/oauth2/authorization/*", "/login/oauth2/code/*").permitAll()
                         // Página interna de errores de Spring: no debe convertir un error en 401.

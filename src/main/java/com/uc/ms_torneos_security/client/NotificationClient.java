@@ -14,8 +14,9 @@ import java.net.http.HttpClient;
 import java.time.Duration;
 import java.util.Map;
 
-// Cliente del microservicio de notificaciones (emails_google, Flask). Este servicio arma el
-// mensaje (por ejemplo, con el código de 2FA que él mismo generó y valida); notificaciones solo lo entrega.
+// Cliente del microservicio de notificaciones (ms_notificaciones, Flask). Este servicio arma el
+// mensaje (por ejemplo, con el código de 2FA o de recuperación que él mismo generó y valida);
+// notificaciones solo lo entrega.
 @Component
 public class NotificationClient {
 
