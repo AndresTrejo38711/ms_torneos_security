@@ -9,7 +9,17 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(name = "users")
+@Table(
+        name = "users",
+        uniqueConstraints = {
+                // Una cuenta de un proveedor (Google, GitHub, Microsoft) corresponde a un solo usuario.
+                // Los usuarios LOCAL tienen provider_id NULL y MySQL no los compara entre sí.
+                @UniqueConstraint(
+                        name = "uk_user_provider",
+                        columnNames = {"auth_provider", "provider_id"}
+                )
+        }
+)
 @Getter
 @Setter
 @NoArgsConstructor

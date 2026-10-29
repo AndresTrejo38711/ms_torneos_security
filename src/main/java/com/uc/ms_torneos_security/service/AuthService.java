@@ -14,6 +14,7 @@ import com.uc.ms_torneos_security.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -34,7 +35,7 @@ public class AuthService {
     public UserResponseDTO register(RegisterRequestDTO dto) {
         userRepository.findByEmail(dto.getEmail())
                 .ifPresent(existing -> {
-                    throw alreadyRegistered(existing);
+                    throw alreadyRegistered(existing, "Ya existe una cuenta registrada con este correo");
                 });
         return userService.create(dto);
     }
@@ -63,6 +64,62 @@ public class AuthService {
             return new AuthResponseDTO(null, null, null, true);
         }
 
+        return activeSession(user);
+    }
+
+    // Login con Google, GitHub o Microsoft: el proveedor ya validó la identidad.
+    // El usuario se reconoce por su id en el proveedor; en su primer ingreso se crea.
+    @Transactional
+    public AuthResponseDTO loginWithOAuth(
+            AuthProvider provider,
+            String providerId,
+            String email,
+            String name) {
+
+        User user = userRepository.findByAuthProviderAndProviderId(provider, providerId)
+                .orElseGet(() -> createOAuthUser(provider, providerId, email, name));
+
+        if (!user.isEnabled()) {
+            throw new ApplicationException(
+                    ErrorCase.UNAUTHORIZED,
+                    "La cuenta está deshabilitada"
+            );
+        }
+
+        // Sin 2FA: en las cuentas OAuth la seguridad del acceso la pone el proveedor.
+        return activeSession(user);
+    }
+
+    private User createOAuthUser(
+            AuthProvider provider,
+            String providerId,
+            String email,
+            String name) {
+
+        if (email == null || email.isBlank()) {
+            throw new ApplicationException(
+                    ErrorCase.UNAUTHORIZED,
+                    provider + " no compartió un correo verificado: no se puede crear la cuenta"
+            );
+        }
+
+        // Un correo ya usado con contraseña o con otro proveedor no se reutiliza: se rechaza el ingreso.
+        userRepository.findByEmail(email)
+                .ifPresent(existing -> {
+                    throw alreadyRegistered(existing,
+                            "Este correo ya está registrado con contraseña: inicia sesión con tu correo y contraseña");
+                });
+
+        // Sin contraseña: quien entra con un proveedor no tiene contraseña en la plataforma.
+        User user = new User();
+        user.setName(name);
+        user.setEmail(email);
+        user.setAuthProvider(provider);
+        user.setProviderId(providerId);
+        return userRepository.save(user);
+    }
+
+    private AuthResponseDTO activeSession(User user) {
         Session session = sessionService.create(user, SessionStatus.ACTIVE);
         return new AuthResponseDTO(
                 jwtService.generateToken(session),
@@ -81,9 +138,9 @@ public class AuthService {
         return userService.findById(userId);
     }
 
-    // Quien ya ingresa con Google, GitHub o Microsoft no debe registrarse a mano:
-    // se le indica con qué proveedor iniciar sesión.
-    private ApplicationException alreadyRegistered(User existing) {
+    // Si el correo es de una cuenta de Google, GitHub o Microsoft, se indica con qué proveedor
+    // iniciar sesión; si es de una cuenta con contraseña, se usa el mensaje recibido.
+    private ApplicationException alreadyRegistered(User existing, String localMessage) {
         if (existing.getAuthProvider() != AuthProvider.LOCAL) {
             return new ApplicationException(
                     ErrorCase.ALREADY_EXISTS,
@@ -93,7 +150,7 @@ public class AuthService {
         }
         return new ApplicationException(
                 ErrorCase.ALREADY_EXISTS,
-                "Ya existe una cuenta registrada con este correo"
+                localMessage
         );
     }
 }

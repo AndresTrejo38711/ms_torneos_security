@@ -1,6 +1,8 @@
 package com.uc.ms_torneos_security.config;
 
 import com.uc.ms_torneos_security.authorization.DynamicAuthorizationManager;
+import com.uc.ms_torneos_security.security.GitHubOAuth2UserService;
+import com.uc.ms_torneos_security.security.OAuth2LoginHandler;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -13,6 +15,7 @@ import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.oauth2.client.web.HttpSessionOAuth2AuthorizedClientRepository;
 import org.springframework.security.web.SecurityFilterChain;
 
 import java.io.IOException;
@@ -22,6 +25,10 @@ import java.io.IOException;
 public class SecurityConfig {
 
     private final DynamicAuthorizationManager dynamicAuthorizationManager;
+
+    private final GitHubOAuth2UserService gitHubOAuth2UserService;
+
+    private final OAuth2LoginHandler oAuth2LoginHandler;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -36,12 +43,26 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // Públicas: quien se registra o inicia sesión todavía no tiene token.
                         .requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login").permitAll()
+                        // Públicas: ida y vuelta con Google, GitHub o Microsoft.
+                        .requestMatchers("/oauth2/authorization/*", "/login/oauth2/code/*").permitAll()
                         // Página interna de errores de Spring: no debe convertir un error en 401.
                         .requestMatchers("/error").permitAll()
                         // Cualquier usuario con sesión puede ver quién es y cerrar su sesión.
                         .requestMatchers("/api/auth/me", "/api/auth/logout").authenticated()
                         // Todo lo demás: token válido Y permiso de alguno de sus roles.
                         .anyRequest().access(dynamicAuthorizationManager)
+                )
+
+                // Login con un proveedor: /oauth2/authorization/{google|github|microsoft} lleva al
+                // proveedor, que devuelve al usuario a /login/oauth2/code/{proveedor}. Spring valida
+                // esa respuesta y oAuth2LoginHandler abre la sesión interna.
+                .oauth2Login(oauth2 -> oauth2
+                        .userInfoEndpoint(userInfo -> userInfo.userService(gitHubOAuth2UserService))
+                        // Los tokens del proveedor solo sirven para leer los datos del usuario:
+                        // quedan en la sesión HTTP del ida y vuelta, que el handler descarta.
+                        .authorizedClientRepository(new HttpSessionOAuth2AuthorizedClientRepository())
+                        .successHandler(oAuth2LoginHandler)
+                        .failureHandler(oAuth2LoginHandler)
                 )
 
                 .oauth2ResourceServer(resourceServer -> resourceServer

@@ -19,20 +19,12 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, String>> handleApplicationException(
             ApplicationException exception) {
 
-        HttpStatus status = switch (exception.getErrorCase()) {
-            case NOT_FOUND -> HttpStatus.NOT_FOUND;
-            case ALREADY_EXISTS -> HttpStatus.CONFLICT;
-            case INVALID_OPERATION -> HttpStatus.BAD_REQUEST;
-            case UNAUTHORIZED -> HttpStatus.UNAUTHORIZED;
-            case FORBIDDEN -> HttpStatus.FORBIDDEN;
-        };
-
         Map<String, String> error = new LinkedHashMap<>();
         error.put("errorCase", exception.getErrorCase().name());
         error.put("message", exception.getMessage());
 
         return ResponseEntity
-                .status(status)
+                .status(exception.getErrorCase().getStatus())
                 .body(error);
     }
 
