@@ -16,4 +16,7 @@ public class AuthResponseDTO {
 
     // true cuando el usuario tiene 2FA: la sesión queda pendiente hasta enviar el código (HU-SE-10).
     boolean twoFactorRequired;
+
+    // Solo con 2FA: se envía junto con el código a /api/auth/2fa/verify.
+    String challengeId;
 }

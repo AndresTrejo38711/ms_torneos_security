@@ -3,6 +3,7 @@ package com.uc.ms_torneos_security.service;
 import com.uc.ms_torneos_security.dto.auth.AuthResponseDTO;
 import com.uc.ms_torneos_security.dto.auth.LoginRequestDTO;
 import com.uc.ms_torneos_security.dto.auth.RegisterRequestDTO;
+import com.uc.ms_torneos_security.dto.auth.VerifyTwoFactorRequestDTO;
 import com.uc.ms_torneos_security.dto.user.UserResponseDTO;
 import com.uc.ms_torneos_security.entity.AuthProvider;
 import com.uc.ms_torneos_security.entity.Session;
@@ -30,6 +31,8 @@ public class AuthService {
 
     private final PasswordEncoder passwordEncoder;
 
+    private final TwoFactorService twoFactorService;
+
     // Autorregistro con credenciales: UserService.create lo deja como usuario LOCAL
     // y guarda la contraseña cifrada con BCrypt, nunca en texto plano.
     public UserResponseDTO register(RegisterRequestDTO dto) {
@@ -42,6 +45,8 @@ public class AuthService {
 
     // Login con correo y contraseña. Si el correo no existe, es de una cuenta OAuth o la
     // contraseña no coincide, responde lo mismo para no revelar qué correos están registrados.
+    // Transaccional: si el código de 2FA no se puede enviar, no queda una sesión pendiente huérfana.
+    @Transactional
     public AuthResponseDTO login(LoginRequestDTO dto) {
         User user = userRepository.findByEmail(dto.getEmail())
                 .filter(found -> found.getAuthProvider() == AuthProvider.LOCAL)
@@ -60,11 +65,21 @@ public class AuthService {
 
         // Con 2FA la sesión queda pendiente y no se entrega token hasta validar el código (HU-SE-10).
         if (user.isTwoFactorEnabled()) {
-            sessionService.create(user, SessionStatus.PENDING_2FA);
-            return new AuthResponseDTO(null, null, null, true);
+            Session session = sessionService.create(user, SessionStatus.PENDING_2FA);
+            String challengeId = twoFactorService.sendCode(session);
+            return new AuthResponseDTO(null, null, null, true, challengeId);
         }
 
         return activeSession(user);
+    }
+
+    // Segundo paso del login con 2FA: con el código correcto la sesión pendiente pasa a ACTIVE.
+    // noRollbackFor: un código incorrecto también se guarda (cuenta como intento fallido).
+    @Transactional(noRollbackFor = ApplicationException.class)
+    public AuthResponseDTO verifyTwoFactor(VerifyTwoFactorRequestDTO dto) {
+        Session session = twoFactorService.checkCode(dto.getChallengeId(), dto.getCode());
+        sessionService.activate(session);
+        return authResponse(session);
     }
 
     // Login con Google, GitHub o Microsoft: el proveedor ya validó la identidad.
@@ -120,12 +135,16 @@ public class AuthService {
     }
 
     private AuthResponseDTO activeSession(User user) {
-        Session session = sessionService.create(user, SessionStatus.ACTIVE);
+        return authResponse(sessionService.create(user, SessionStatus.ACTIVE));
+    }
+
+    private AuthResponseDTO authResponse(Session session) {
         return new AuthResponseDTO(
                 jwtService.generateToken(session),
                 "Bearer",
                 session.getExpiresAt(),
-                false
+                false,
+                null
         );
     }
 

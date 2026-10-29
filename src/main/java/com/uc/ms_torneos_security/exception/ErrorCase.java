@@ -9,7 +9,9 @@ public enum ErrorCase {
     ALREADY_EXISTS(HttpStatus.CONFLICT),
     INVALID_OPERATION(HttpStatus.BAD_REQUEST),
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED),
-    FORBIDDEN(HttpStatus.FORBIDDEN);
+    FORBIDDEN(HttpStatus.FORBIDDEN),
+    // Un servicio del que depende la operación (por ejemplo, el de notificaciones) no respondió.
+    SERVICE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE);
 
     private final HttpStatus status;
 

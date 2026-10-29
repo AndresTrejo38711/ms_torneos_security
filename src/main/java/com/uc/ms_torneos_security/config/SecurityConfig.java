@@ -43,12 +43,16 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // Públicas: quien se registra o inicia sesión todavía no tiene token.
                         .requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login").permitAll()
+                        // Pública: el segundo paso del login con 2FA, cuando aún no hay token.
+                        .requestMatchers(HttpMethod.POST, "/api/auth/2fa/verify").permitAll()
                         // Públicas: ida y vuelta con Google, GitHub o Microsoft.
                         .requestMatchers("/oauth2/authorization/*", "/login/oauth2/code/*").permitAll()
                         // Página interna de errores de Spring: no debe convertir un error en 401.
                         .requestMatchers("/error").permitAll()
-                        // Cualquier usuario con sesión puede ver quién es y cerrar su sesión.
-                        .requestMatchers("/api/auth/me", "/api/auth/logout").authenticated()
+                        // Cualquier usuario con sesión puede ver quién es, cerrar su sesión
+                        // y activar o desactivar el 2FA de su propia cuenta.
+                        .requestMatchers("/api/auth/me", "/api/auth/logout",
+                                "/api/auth/2fa/enable", "/api/auth/2fa/disable").authenticated()
                         // Todo lo demás: token válido Y permiso de alguno de sus roles.
                         .anyRequest().access(dynamicAuthorizationManager)
                 )

@@ -64,4 +64,13 @@ public class Session {
             nullable = false
     )
     private User user;
+
+    // Solo las sesiones que pasaron por el 2FA tienen código. Se borra junto con la sesión.
+    @OneToOne(
+            mappedBy = "session",
+            cascade = CascadeType.ALL,
+            orphanRemoval = true,
+            fetch = FetchType.LAZY
+    )
+    private TwoFactorCode twoFactorCode;
 }

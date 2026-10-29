@@ -41,6 +41,13 @@ public class SessionService {
         return sessionRepository.isUsable(tokenId, SessionStatus.ACTIVE, LocalDateTime.now());
     }
 
+    // Termina un login con 2FA: la sesión pendiente pasa a ACTIVE y sus 30 minutos cuentan desde ahora.
+    public void activate(Session session) {
+        session.setStatus(SessionStatus.ACTIVE);
+        session.setExpiresAt(LocalDateTime.now().plus(sessionDuration));
+        sessionRepository.save(session);
+    }
+
     @Transactional
     public void close(String tokenId) {
         Session session = sessionRepository.findByTokenId(tokenId)
@@ -48,6 +55,10 @@ public class SessionService {
                         ErrorCase.UNAUTHORIZED,
                         "La sesión no existe"
                 ));
+        close(session);
+    }
+
+    public void close(Session session) {
         session.setStatus(SessionStatus.CLOSED);
         session.setClosedAt(LocalDateTime.now());
         sessionRepository.save(session);
