@@ -1,5 +1,7 @@
 package com.uc.ms_torneos_security.mapper;
 
+import com.uc.ms_torneos_security.dto.auth.MeResponseDTO;
+import com.uc.ms_torneos_security.dto.permission.PermissionSummaryDTO;
 import com.uc.ms_torneos_security.dto.user.CreateUserDTO;
 import com.uc.ms_torneos_security.dto.user.UpdateUserDTO;
 import com.uc.ms_torneos_security.dto.user.UserDetailResponseDTO;
@@ -49,6 +51,23 @@ public class UserMapper {
                 user.isEnabled(),
                 user.isTwoFactorEnabled(),
                 profileMapper.toResponseDTO(user.getProfile())
+        );
+    }
+
+    public MeResponseDTO toMeResponseDTO(
+            User user,
+            List<String> roles,
+            List<PermissionSummaryDTO> permissions
+    ) {
+        return new MeResponseDTO(
+                user.getId(),
+                user.getName(),
+                user.getEmail(),
+                user.getAuthProvider(),
+                user.isEnabled(),
+                user.isTwoFactorEnabled(),
+                roles,
+                permissions
         );
     }
 

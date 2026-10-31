@@ -2,6 +2,7 @@ package com.uc.ms_torneos_security.controller;
 
 import com.uc.ms_torneos_security.dto.auth.AuthResponseDTO;
 import com.uc.ms_torneos_security.dto.auth.LoginRequestDTO;
+import com.uc.ms_torneos_security.dto.auth.MeResponseDTO;
 import com.uc.ms_torneos_security.dto.auth.RegisterRequestDTO;
 import com.uc.ms_torneos_security.dto.user.UserResponseDTO;
 import com.uc.ms_torneos_security.service.AuthService;
@@ -39,9 +40,10 @@ public class AuthController {
         authService.logout(jwt.getId());
     }
 
-    // Requiere token: devuelve el usuario dueño de la sesión.
+    // Requiere token: devuelve el usuario dueño de la sesión con sus roles y permisos.
+    // Solo pide sesión (no un permiso): cada usuario consulta lo suyo, tomado del token.
     @GetMapping("/me")
-    public UserResponseDTO me(@AuthenticationPrincipal Jwt jwt) {
+    public MeResponseDTO me(@AuthenticationPrincipal Jwt jwt) {
         return authService.me(Long.valueOf(jwt.getSubject()));
     }
 }

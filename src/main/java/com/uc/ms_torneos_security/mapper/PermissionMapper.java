@@ -4,6 +4,7 @@ import com.uc.ms_torneos_security.dto.permission.CreatePermissionDTO;
 import com.uc.ms_torneos_security.dto.permission.EndpointRequestDTO;
 import com.uc.ms_torneos_security.dto.permission.EndpointResponseDTO;
 import com.uc.ms_torneos_security.dto.permission.PermissionResponseDTO;
+import com.uc.ms_torneos_security.dto.permission.PermissionSummaryDTO;
 import com.uc.ms_torneos_security.dto.permission.UpdatePermissionDTO;
 import com.uc.ms_torneos_security.entity.HttpMethodType;
 import com.uc.ms_torneos_security.entity.Permission;
@@ -63,6 +64,20 @@ public class PermissionMapper {
     public List<PermissionResponseDTO> toResponseDTOList(List<Permission> permissions) {
         return permissions.stream()
                 .map(this::toResponseDTO)
+                .toList();
+    }
+
+    public PermissionSummaryDTO toSummaryDTO(Permission permission) {
+        return new PermissionSummaryDTO(
+                permission.getModule(),
+                permission.getModel(),
+                permission.getOperation()
+        );
+    }
+
+    public List<PermissionSummaryDTO> toSummaryDTOList(List<Permission> permissions) {
+        return permissions.stream()
+                .map(this::toSummaryDTO)
                 .toList();
     }
 

@@ -2,20 +2,28 @@ package com.uc.ms_torneos_security.service;
 
 import com.uc.ms_torneos_security.dto.auth.AuthResponseDTO;
 import com.uc.ms_torneos_security.dto.auth.LoginRequestDTO;
+import com.uc.ms_torneos_security.dto.auth.MeResponseDTO;
 import com.uc.ms_torneos_security.dto.auth.RegisterRequestDTO;
 import com.uc.ms_torneos_security.dto.auth.VerifyTwoFactorRequestDTO;
 import com.uc.ms_torneos_security.dto.user.UserResponseDTO;
 import com.uc.ms_torneos_security.entity.AuthProvider;
+import com.uc.ms_torneos_security.entity.Permission;
 import com.uc.ms_torneos_security.entity.Session;
 import com.uc.ms_torneos_security.entity.SessionStatus;
 import com.uc.ms_torneos_security.entity.User;
 import com.uc.ms_torneos_security.exception.ApplicationException;
 import com.uc.ms_torneos_security.exception.ErrorCase;
+import com.uc.ms_torneos_security.mapper.PermissionMapper;
+import com.uc.ms_torneos_security.mapper.UserMapper;
+import com.uc.ms_torneos_security.repository.PermissionRepository;
 import com.uc.ms_torneos_security.repository.UserRepository;
+import com.uc.ms_torneos_security.repository.UserRoleRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -32,6 +40,14 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
 
     private final TwoFactorService twoFactorService;
+
+    private final UserRoleRepository userRoleRepository;
+
+    private final PermissionRepository permissionRepository;
+
+    private final UserMapper userMapper;
+
+    private final PermissionMapper permissionMapper;
 
     // Autorregistro con credenciales: UserService.create lo deja como usuario LOCAL
     // y guarda la contraseña cifrada con BCrypt, nunca en texto plano.
@@ -153,8 +169,20 @@ public class AuthService {
         sessionService.close(tokenId);
     }
 
-    public UserResponseDTO me(Long userId) {
-        return userService.findById(userId);
+    // Usuario de la sesión con sus roles y permisos efectivos, para que el front muestre solo
+    // las opciones que puede usar. Ocultar opciones es solo visual: el backend igual valida cada petición.
+    @Transactional(readOnly = true)
+    public MeResponseDTO me(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ApplicationException(
+                        ErrorCase.NOT_FOUND,
+                        "Usuario no encontrado con id: " + userId
+                ));
+        List<String> roles = userRoleRepository.findAllByUserId(userId).stream()
+                .map(userRole -> userRole.getRole().getName())
+                .toList();
+        List<Permission> permissions = permissionRepository.findEffectiveByUserId(userId);
+        return userMapper.toMeResponseDTO(user, roles, permissionMapper.toSummaryDTOList(permissions));
     }
 
     // Si el correo es de una cuenta de Google, GitHub o Microsoft, se indica con qué proveedor
