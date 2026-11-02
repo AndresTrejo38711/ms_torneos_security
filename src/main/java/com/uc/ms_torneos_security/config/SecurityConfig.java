@@ -52,9 +52,9 @@ public class SecurityConfig {
                         .requestMatchers("/oauth2/authorization/*", "/login/oauth2/code/*").permitAll()
                         // Página interna de errores de Spring: no debe convertir un error en 401.
                         .requestMatchers("/error").permitAll()
-                        // Cualquier usuario con sesión puede ver quién es, cerrar su sesión
-                        // y activar o desactivar el 2FA de su propia cuenta.
-                        .requestMatchers("/api/auth/me", "/api/auth/logout",
+                        // Cualquier usuario con sesión puede ver quién es, manejar su propio perfil,
+                        // cerrar su sesión y activar o desactivar el 2FA de su propia cuenta.
+                        .requestMatchers("/api/auth/me", "/api/auth/me/profile", "/api/auth/logout",
                                 "/api/auth/2fa/enable", "/api/auth/2fa/disable").authenticated()
                         // Todo lo demás: token válido Y permiso de alguno de sus roles.
                         .anyRequest().access(dynamicAuthorizationManager)
