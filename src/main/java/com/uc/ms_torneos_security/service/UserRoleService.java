@@ -34,6 +34,8 @@ public class UserRoleService {
 
     private final UserMapper userMapper;
 
+    private final AdminGuard adminGuard;
+
     @Transactional
     public UserRoleResponseDTO assign(AssignRoleRequestDTO dto) {
         User user = findUser(dto.getUserId());
@@ -88,13 +90,15 @@ public class UserRoleService {
     }
 
     // Solo borra la asignación: el usuario y el rol siguen existiendo.
+    // currentUserId: quien hace la petición (nadie se quita a sí mismo el rol Administrador).
     @Transactional
-    public void delete(Long userId, Long roleId) {
+    public void delete(Long userId, Long roleId, Long currentUserId) {
         UserRole userRole = userRoleRepository.findByUserIdAndRoleId(userId, roleId)
                 .orElseThrow(() -> new ApplicationException(
                         ErrorCase.NOT_FOUND,
                         "El usuario con id " + userId + " no tiene asignado el rol con id " + roleId
                 ));
+        adminGuard.checkCanRemoveRole(userRole, currentUserId);
         userRoleRepository.delete(userRole);
     }
 

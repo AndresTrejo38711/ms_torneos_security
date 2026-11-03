@@ -8,6 +8,8 @@ import com.uc.ms_torneos_security.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
@@ -46,9 +48,12 @@ public class UserController {
         return userService.update(id, dto);
     }
 
+    // "jwt" es el token de quien hace la petición: su "sub" es el id del usuario.
     @PatchMapping("/{id}/disable")
-    public UserResponseDTO disable(@PathVariable Long id) {
-        return userService.disable(id);
+    public UserResponseDTO disable(
+            @PathVariable Long id,
+            @AuthenticationPrincipal Jwt jwt) {
+        return userService.disable(id, Long.valueOf(jwt.getSubject()));
     }
 
     @PatchMapping("/{id}/enable")
@@ -58,7 +63,9 @@ public class UserController {
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void delete(@PathVariable Long id) {
-        userService.delete(id);
+    public void delete(
+            @PathVariable Long id,
+            @AuthenticationPrincipal Jwt jwt) {
+        userService.delete(id, Long.valueOf(jwt.getSubject()));
     }
 }

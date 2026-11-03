@@ -24,6 +24,8 @@ public class RoleService {
 
     private final RoleMapper roleMapper;
 
+    private final AdminGuard adminGuard;
+
     public RoleResponseDTO create(CreateRoleDTO dto) {
         if (roleRepository.existsByNameIgnoreCase(dto.getName())) {
             throw new ApplicationException(
@@ -54,6 +56,8 @@ public class RoleService {
                     "Ya existe un rol con ese nombre"
             );
         }
+        // Al Administrador se le puede cambiar la descripción, pero no el nombre.
+        adminGuard.checkCanRename(role, dto.getName());
         roleMapper.updateEntity(dto, role);
         Role updatedRole = roleRepository.save(role);
         return roleMapper.toResponseDTO(updatedRole);

@@ -34,7 +34,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class DatabaseSeeder implements CommandLineRunner {
 
-    private static final String ADMIN_ROLE = "Administrador";
+    private static final String ADMIN_ROLE = Role.ADMIN_NAME;
 
     // Un permiso por recurso + operación; cada uno con todos los endpoints que lo ejercen.
     private static final List<PermissionSeed> PERMISSIONS = List.of(

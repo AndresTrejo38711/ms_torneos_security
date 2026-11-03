@@ -15,6 +15,10 @@ import java.util.List;
 @NoArgsConstructor
 public class Role {
 
+    // Rol que crea DatabaseSeeder con todos los permisos del módulo de seguridad.
+    // AdminGuard lo protege para que la plataforma nunca se quede sin quien la administre.
+    public static final String ADMIN_NAME = "Administrador";
+
     @Id
     @GeneratedValue(
             strategy = GenerationType.IDENTITY

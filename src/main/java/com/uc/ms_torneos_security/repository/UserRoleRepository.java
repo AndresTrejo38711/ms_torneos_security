@@ -3,6 +3,8 @@ package com.uc.ms_torneos_security.repository;
 import com.uc.ms_torneos_security.entity.UserRole;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
@@ -13,6 +15,19 @@ public interface UserRoleRepository extends JpaRepository<UserRole, Long> {
             Long userId,
             Long roleId
     );
+
+    boolean existsByUserIdAndRoleName(
+            Long userId,
+            String roleName
+    );
+
+    // Usuarios que tienen el rol y todavía pueden entrar (cuenta activa).
+    @Query("""
+            SELECT COUNT(ur) FROM UserRole ur
+            WHERE ur.role.name = :roleName
+              AND ur.user.enabled = true
+            """)
+    long countEnabledUsersWithRole(@Param("roleName") String roleName);
 
     boolean existsByRoleId(Long roleId);
 

@@ -8,6 +8,8 @@ import com.uc.ms_torneos_security.service.UserRoleService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -49,7 +51,8 @@ public class UserRoleController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(
             @PathVariable Long userId,
-            @PathVariable Long roleId) {
-        userRoleService.delete(userId, roleId);
+            @PathVariable Long roleId,
+            @AuthenticationPrincipal Jwt jwt) {
+        userRoleService.delete(userId, roleId, Long.valueOf(jwt.getSubject()));
     }
 }

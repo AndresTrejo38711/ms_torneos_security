@@ -29,6 +29,8 @@ public class UserService {
 
     private final SessionService sessionService;
 
+    private final AdminGuard adminGuard;
+
     public UserResponseDTO create(CreateUserDTO dto) {
         if (userRepository.existsByEmail(dto.getEmail())) {
             throw new ApplicationException(
@@ -93,7 +95,8 @@ public class UserService {
         return userMapper.toResponseDTO(updatedUser);
     }
 
-    public UserResponseDTO disable(Long id) {
+    // currentUserId: quien hace la petición. Nadie se desactiva a sí mismo ni al último administrador.
+    public UserResponseDTO disable(Long id, Long currentUserId) {
         User user = findUser(id);
         if (!user.isEnabled()) {
             throw new ApplicationException(
@@ -101,6 +104,7 @@ public class UserService {
                     "El usuario ya está desactivado"
             );
         }
+        adminGuard.checkCanDisable(user, currentUserId);
         user.setEnabled(false);
         User updatedUser = userRepository.save(user);
         // Un usuario desactivado pierde el acceso de inmediato, aunque tuviera un token vigente.
@@ -121,8 +125,10 @@ public class UserService {
         return userMapper.toResponseDTO(updatedUser);
     }
 
-    public void delete(Long id) {
+    // Igual que al desactivar: nadie se elimina a sí mismo ni al último administrador.
+    public void delete(Long id, Long currentUserId) {
         User user = findUser(id);
+        adminGuard.checkCanDelete(user, currentUserId);
         userRepository.delete(user);
     }
 }
