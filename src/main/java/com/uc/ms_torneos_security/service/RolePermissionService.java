@@ -42,8 +42,6 @@ public class RolePermissionService {
 
     private final PermissionMapper permissionMapper;
 
-    private final AdminGuard adminGuard;
-
     @Transactional
     public RolePermissionResponseDTO assign(AssignPermissionRequestDTO dto) {
         Role role = findRole(dto.getRoleId());
@@ -132,9 +130,6 @@ public class RolePermissionService {
                 })
                 .toList();
 
-        // Antes de tocar nada: al Administrador no se le quitan los permisos de Administración.
-        adminGuard.checkCanRemovePermissions(role, toRemove);
-
         rolePermissionRepository.deleteAll(toRemove);
         rolePermissionRepository.saveAll(toAdd);
 
@@ -149,7 +144,6 @@ public class RolePermissionService {
                         ErrorCase.NOT_FOUND,
                         "El rol con id " + roleId + " no tiene asignado el permiso con id " + permissionId
                 ));
-        adminGuard.checkCanRemovePermissions(rolePermission.getRole(), List.of(rolePermission));
         rolePermissionRepository.delete(rolePermission);
     }
 

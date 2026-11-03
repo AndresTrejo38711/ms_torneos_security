@@ -1,8 +1,6 @@
 package com.uc.ms_torneos_security.service;
 
-import com.uc.ms_torneos_security.entity.ModuleType;
 import com.uc.ms_torneos_security.entity.Role;
-import com.uc.ms_torneos_security.entity.RolePermission;
 import com.uc.ms_torneos_security.entity.User;
 import com.uc.ms_torneos_security.entity.UserRole;
 import com.uc.ms_torneos_security.exception.ApplicationException;
@@ -11,12 +9,10 @@ import com.uc.ms_torneos_security.repository.UserRoleRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
-import java.util.Collection;
-
 // Reglas para que la plataforma nunca se quede sin quien la administre: siempre debe quedar al menos
-// un usuario activo con el rol Administrador, y ese rol conserva los permisos del módulo Administración.
-// Sin ellas, un administrador podía desactivarse, borrarse o quitarse el rol (o quitarle al rol los
-// permisos de seguridad) y nadie podría volver a gestionar usuarios, roles ni permisos.
+// un usuario activo con el rol Administrador. Sin ellas, un administrador podía desactivarse, borrarse
+// o quitarse el rol y nadie podría volver a gestionar usuarios, roles ni permisos.
+// (Quitarle permisos al rol Administrador sí se permite: el front advierte antes de guardar.)
 @Component
 @RequiredArgsConstructor
 public class AdminGuard {
@@ -62,19 +58,6 @@ public class AdminGuard {
         if (isAdminRole(role) && !Role.ADMIN_NAME.equalsIgnoreCase(newName)) {
             throw invalid("El rol " + Role.ADMIN_NAME
                     + " no se puede renombrar: la plataforma lo usa para que siempre haya quien la administre");
-        }
-    }
-
-    // Agregarle permisos al Administrador sí se puede; quitarle los de Administración, no.
-    public void checkCanRemovePermissions(Role role, Collection<RolePermission> removed) {
-        if (!isAdminRole(role)) {
-            return;
-        }
-        boolean losesAdministration = removed.stream()
-                .anyMatch(rolePermission -> rolePermission.getPermission().getModule() == ModuleType.ADMINISTRACION);
-        if (losesAdministration) {
-            throw invalid("El rol " + Role.ADMIN_NAME + " debe conservar los permisos del módulo Administración: "
-                    + "sin ellos nadie podría volver a gestionar usuarios, roles y permisos");
         }
     }
 
