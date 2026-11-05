@@ -99,7 +99,8 @@ En los arranques siguientes solo crea lo que falte. Por ejemplo, si al rol Admin
 
 - **Sesión:** al iniciar sesión se guarda una sesión en la base y se entrega un JWT firmado con `JWT_SECRET`, que dura 30 minutos. Se envía en cada petición como `Authorization: Bearer <token>`. Cerrar sesión o desactivar al usuario lo deja sin valor aunque no haya vencido.
 - **Rutas públicas:** registro, login, `2fa/verify`, recuperar contraseña y el login con Google o GitHub.
-- **Rutas que solo piden sesión:** `/api/auth/me`, `/api/auth/me/profile`, `/api/auth/logout` y activar o desactivar el 2FA.
+- **Rutas que solo piden sesión:** `/api/auth/me`, `/api/auth/me/profile`, `/api/auth/logout`, activar o desactivar el 2FA y la validación remota de permisos.
+- **Validación remota de permisos:** otro microservicio reenvía el JWT que recibió y pregunta si ese usuario puede usar una URL y un método (`POST /api/internal/security/permissions-validation` con `{"url": "/torneos/tournaments/15", "method": "DELETE"}`). Responde 200 con `{"allowed": true}` o `{"allowed": false}`; el microservicio que pregunta convierte el `false` en 403, y si este servicio no responde, no ejecuta la operación. La URL se compara con las rutas de los permisos igual que las de este servicio (`/15` coincide con `/{id}`); para que no se confundan rutas iguales de dos microservicios, regístralas con un prefijo del servicio.
 - **Todas las demás piden un permiso.** Cada permiso es un recurso más una operación (por ejemplo, `usuarios · LIST`) con las rutas que habilita. En cada petición se revisa si algún rol del usuario lo tiene; si no, responde 403. Los cambios en los permisos de un rol aplican de inmediato, sin volver a iniciar sesión.
 - **Protección del administrador** (`AdminGuard`): nadie puede desactivarse, eliminarse ni quitarse el rol Administrador a sí mismo; siempre debe quedar un administrador activo; y el rol Administrador no se puede renombrar.
 - **Duraciones**, en `application.properties`: sesión 30 minutos, código de dos pasos 5 minutos, código de recuperación 15 minutos.
@@ -119,6 +120,7 @@ En los arranques siguientes solo crea lo que falte. Por ejemplo, si al rol Admin
 | `/api/user-roles` | Asignar y quitar roles a los usuarios | SE-04 | Permiso `asignacion-roles` |
 | `/api/permissions` | Permisos y las rutas de cada uno | SE-05 | Permiso `permisos` |
 | `/api/role-permissions` | Permisos de cada rol, la matriz y los permisos efectivos de un usuario | SE-06 | Permiso `asignacion-permisos` |
+| `/api/internal/security/permissions-validation` | Otro microservicio pregunta si el usuario del token tiene permiso para una URL y un método | — | Con sesión |
 
 ## Errores
 

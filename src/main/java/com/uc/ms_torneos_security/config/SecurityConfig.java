@@ -56,6 +56,11 @@ public class SecurityConfig {
                         // cerrar su sesión y activar o desactivar el 2FA de su propia cuenta.
                         .requestMatchers("/api/auth/me", "/api/auth/me/profile", "/api/auth/logout",
                                 "/api/auth/2fa/enable", "/api/auth/2fa/disable").authenticated()
+                        // Validación remota de permisos: pide un token válido, pero no pasa por la
+                        // autorización dinámica de su propia URL; el permiso que se evalúa es el de
+                        // la URL y el método que llegan en el cuerpo.
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/internal/security/permissions-validation").authenticated()
                         // Todo lo demás: token válido Y permiso de alguno de sus roles.
                         .anyRequest().access(dynamicAuthorizationManager)
                 )
