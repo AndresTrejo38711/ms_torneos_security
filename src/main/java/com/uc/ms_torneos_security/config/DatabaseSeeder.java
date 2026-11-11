@@ -26,9 +26,13 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
-// Al arrancar deja listos los permisos de este microservicio, el rol Administrador con todos
-// ellos y el usuario administrador. Sin esto, con la API protegida nadie podría entrar.
+// Al arrancar deja listos los permisos de la plataforma, los roles iniciales y el usuario administrador.
+// Sin esto, con la API protegida nadie podría entrar.
 // Solo crea lo que falta: si algo ya existe (por ejemplo, el administrador cambió un permiso), lo respeta.
+//
+// Los permisos de los otros microservicios también se siembran aquí, porque es aquí donde se guardan
+// y se validan: ms_torneos_deportiva no tiene tablas de permisos, solo le pregunta a este servicio
+// (POST /api/internal/security/permissions-validation) si el usuario puede llamar cada URL.
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -36,8 +40,12 @@ public class DatabaseSeeder implements CommandLineRunner {
 
     private static final String ADMIN_ROLE = Role.ADMIN_NAME;
 
+    // Rol de las HU del Anexo 2 ("Como administrador deportivo..."): solo el módulo GESTION_DEPORTIVA.
+    private static final String SPORTS_ADMIN_ROLE = "Administrador deportivo";
+
     // Un permiso por recurso + operación; cada uno con todos los endpoints que lo ejercen.
-    private static final List<PermissionSeed> PERMISSIONS = List.of(
+    // Módulo ADMINISTRACION: este microservicio.
+    private static final List<PermissionSeed> SECURITY_PERMISSIONS = List.of(
             permission("usuarios", Operation.VIEW, get("/api/users/{id}"), get("/api/users/{id}/detail")),
             permission("usuarios", Operation.LIST, get("/api/users")),
             permission("usuarios", Operation.CREATE, post("/api/users")),
@@ -78,6 +86,64 @@ public class DatabaseSeeder implements CommandLineRunner {
             permission("asignacion-permisos", Operation.DELETE, delete("/api/role-permissions/{roleId}/{permissionId}"))
     );
 
+    // Módulo GESTION_DEPORTIVA: ms_torneos_deportiva (Anexo 2), con su prefijo /api/deportiva.
+    private static final String SPORTS = "/api/deportiva";
+
+    private static final List<PermissionSeed> SPORTS_PERMISSIONS = List.of(
+            // HU-GD-01
+            permission("deportes", Operation.VIEW, get(SPORTS + "/sports/{id}")),
+            permission("deportes", Operation.LIST, get(SPORTS + "/sports")),
+            permission("deportes", Operation.CREATE, post(SPORTS + "/sports")),
+            permission("deportes", Operation.UPDATE, put(SPORTS + "/sports/{id}"),
+                    patch(SPORTS + "/sports/{id}/disable"), patch(SPORTS + "/sports/{id}/enable")),
+            permission("deportes", Operation.DELETE, delete(SPORTS + "/sports/{id}")),
+
+            // HU-GD-02
+            permission("equipos", Operation.VIEW, get(SPORTS + "/teams/{id}")),
+            permission("equipos", Operation.LIST, get(SPORTS + "/teams")),
+            permission("equipos", Operation.CREATE, post(SPORTS + "/teams")),
+            permission("equipos", Operation.UPDATE, put(SPORTS + "/teams/{id}"),
+                    patch(SPORTS + "/teams/{id}/disable"), patch(SPORTS + "/teams/{id}/enable")),
+            permission("equipos", Operation.DELETE, delete(SPORTS + "/teams/{id}")),
+
+            // HU-GD-03
+            permission("asignacion-deportes", Operation.LIST, get(SPORTS + "/team-sports/teams/{teamId}"),
+                    get(SPORTS + "/team-sports/sports/{sportId}")),
+            permission("asignacion-deportes", Operation.CREATE, post(SPORTS + "/team-sports")),
+            permission("asignacion-deportes", Operation.DELETE, delete(SPORTS + "/team-sports/{teamId}/{sportId}")),
+
+            // HU-GD-04 (LIST incluye la búsqueda GET /players?search=, que usa el perfil deportivo)
+            permission("jugadores", Operation.VIEW, get(SPORTS + "/players/{id}")),
+            permission("jugadores", Operation.LIST, get(SPORTS + "/players")),
+            permission("jugadores", Operation.CREATE, post(SPORTS + "/players")),
+            permission("jugadores", Operation.UPDATE, put(SPORTS + "/players/{id}"),
+                    patch(SPORTS + "/players/{id}/disable"), patch(SPORTS + "/players/{id}/enable")),
+            permission("jugadores", Operation.DELETE, delete(SPORTS + "/players/{id}")),
+
+            // HU-GD-05 (retirar cierra el contrato: es una actualización, no un borrado)
+            permission("contratos", Operation.LIST, get(SPORTS + "/team-players/teams/{teamId}"),
+                    get(SPORTS + "/team-players/players/{playerId}")),
+            permission("contratos", Operation.CREATE, post(SPORTS + "/team-players")),
+            permission("contratos", Operation.UPDATE, patch(SPORTS + "/team-players/{id}/retire")),
+
+            // HU-GD-06
+            permission("habilidades", Operation.VIEW, get(SPORTS + "/skills/{id}")),
+            permission("habilidades", Operation.LIST, get(SPORTS + "/skills")),
+            permission("habilidades", Operation.CREATE, post(SPORTS + "/skills")),
+            permission("habilidades", Operation.UPDATE, put(SPORTS + "/skills/{id}")),
+            permission("habilidades", Operation.DELETE, delete(SPORTS + "/skills/{id}")),
+
+            // HU-GD-07
+            permission("asignacion-habilidades", Operation.LIST, get(SPORTS + "/player-skills/players/{playerId}"),
+                    get(SPORTS + "/player-skills/skills/{skillId}")),
+            permission("asignacion-habilidades", Operation.CREATE, post(SPORTS + "/player-skills")),
+            permission("asignacion-habilidades", Operation.DELETE,
+                    delete(SPORTS + "/player-skills/{playerId}/{skillId}")),
+
+            // HU-GD-08
+            permission("perfil-deportivo", Operation.VIEW, get(SPORTS + "/players/{id}/profile"))
+    );
+
     private final UserRepository userRepository;
 
     private final RoleRepository roleRepository;
@@ -101,16 +167,22 @@ public class DatabaseSeeder implements CommandLineRunner {
     @Override
     @Transactional
     public void run(String... args) {
-        Role adminRole = findOrCreateAdminRole();
+        List<Permission> securityPermissions = findOrCreatePermissions(ModuleType.ADMINISTRACION, SECURITY_PERMISSIONS);
+        List<Permission> sportsPermissions = findOrCreatePermissions(ModuleType.GESTION_DEPORTIVA, SPORTS_PERMISSIONS);
 
-        for (PermissionSeed seed : PERMISSIONS) {
-            Permission permission = findOrCreatePermission(seed);
-            if (!rolePermissionRepository.existsByRoleIdAndPermissionId(adminRole.getId(), permission.getId())) {
-                RolePermission rolePermission = new RolePermission();
-                rolePermission.setRole(adminRole);
-                rolePermission.setPermission(permission);
-                rolePermissionRepository.save(rolePermission);
-            }
+        // El Administrador tiene todos los permisos. Si le falta alguno, se le vuelve a dar en cada arranque.
+        Role adminRole = roleRepository.findByNameIgnoreCase(ADMIN_ROLE)
+                .orElseGet(() -> createRole(ADMIN_ROLE, "Acceso total a la plataforma"));
+        grant(adminRole, securityPermissions);
+        grant(adminRole, sportsPermissions);
+
+        // El Administrador deportivo recibe sus permisos solo cuando se crea el rol: si después alguien
+        // le quita o le agrega permisos desde la matriz, el seeder no se los vuelve a cambiar.
+        if (!roleRepository.existsByNameIgnoreCase(SPORTS_ADMIN_ROLE)) {
+            Role sportsAdminRole = createRole(SPORTS_ADMIN_ROLE,
+                    "Gestiona deportes, equipos, jugadores, contratos y habilidades");
+            grant(sportsAdminRole, sportsPermissions);
+            log.info("Rol {} creado con {} permisos", SPORTS_ADMIN_ROLE, sportsPermissions.size());
         }
 
         User admin = findOrCreateAdmin();
@@ -121,24 +193,38 @@ public class DatabaseSeeder implements CommandLineRunner {
             userRoleRepository.save(userRole);
         }
 
-        log.info("Administrador listo: {} con el rol {} ({} permisos)", adminEmail, ADMIN_ROLE, PERMISSIONS.size());
+        log.info("Administrador listo: {} con el rol {} ({} permisos)", adminEmail, ADMIN_ROLE,
+                securityPermissions.size() + sportsPermissions.size());
     }
 
-    private Role findOrCreateAdminRole() {
-        return roleRepository.findByNameIgnoreCase(ADMIN_ROLE)
-                .orElseGet(() -> {
-                    Role role = new Role();
-                    role.setName(ADMIN_ROLE);
-                    role.setDescription("Acceso total al módulo de seguridad");
-                    return roleRepository.save(role);
-                });
+    private Role createRole(String name, String description) {
+        Role role = new Role();
+        role.setName(name);
+        role.setDescription(description);
+        return roleRepository.save(role);
     }
 
-    private Permission findOrCreatePermission(PermissionSeed seed) {
+    private List<Permission> findOrCreatePermissions(ModuleType module, List<PermissionSeed> seeds) {
+        return seeds.stream().map(seed -> findOrCreatePermission(module, seed)).toList();
+    }
+
+    // Le da al rol los permisos que todavía no tenga.
+    private void grant(Role role, List<Permission> permissions) {
+        for (Permission permission : permissions) {
+            if (!rolePermissionRepository.existsByRoleIdAndPermissionId(role.getId(), permission.getId())) {
+                RolePermission rolePermission = new RolePermission();
+                rolePermission.setRole(role);
+                rolePermission.setPermission(permission);
+                rolePermissionRepository.save(rolePermission);
+            }
+        }
+    }
+
+    private Permission findOrCreatePermission(ModuleType module, PermissionSeed seed) {
         return permissionRepository.findByModelAndOperation(seed.model(), seed.operation())
                 .orElseGet(() -> {
                     Permission permission = new Permission();
-                    permission.setModule(ModuleType.ADMINISTRACION);
+                    permission.setModule(module);
                     permission.setModel(seed.model());
                     permission.setOperation(seed.operation());
                     for (EndpointSeed endpointSeed : seed.endpoints()) {
