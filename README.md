@@ -76,7 +76,7 @@ En el primer arranque, `DatabaseSeeder` deja lista la base:
 - el rol **Administrador deportivo**, solo con los 30 de Gestión Deportiva;
 - el usuario `ADMIN_EMAIL`, con el rol Administrador.
 
-En los arranques siguientes solo crea lo que falte. Por ejemplo, si al rol Administrador le quitaron alguno de sus permisos, se lo vuelve a dar. El Administrador deportivo es distinto: recibe sus permisos solo cuando se crea el rol, así que los cambios que se le hagan desde la matriz se respetan. Si el correo del administrador ya existe, conserva ese usuario y su contraseña.
+En los arranques siguientes solo crea lo que falte. Por ejemplo, si al rol Administrador le quitaron alguno de sus permisos, se lo vuelve a dar; y si a un permiso le falta alguno de sus endpoints (porque el microservicio agregó una ruta, como `PATCH /api/deportiva/skills/{id}/disable`), se lo agrega sin tocar los roles. El Administrador deportivo es distinto: recibe sus permisos solo cuando se crea el rol, así que los cambios que se le hagan desde la matriz se respetan. Si el correo del administrador ya existe, conserva ese usuario y su contraseña.
 
 ### Si no arranca
 

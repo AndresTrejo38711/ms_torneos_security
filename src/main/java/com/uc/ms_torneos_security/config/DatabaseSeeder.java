@@ -29,6 +29,10 @@ import java.util.List;
 // Al arrancar deja listos los permisos de la plataforma, los roles iniciales y el usuario administrador.
 // Sin esto, con la API protegida nadie podría entrar.
 // Solo crea lo que falta: si algo ya existe (por ejemplo, el administrador cambió un permiso), lo respeta.
+// Eso incluye los endpoints: si a un permiso le falta uno de los de esta lista (porque el microservicio
+// agregó la ruta o porque alguien lo quitó), se le vuelve a agregar en el siguiente arranque, salvo que
+// ese endpoint ya esté registrado en otro permiso. Así una ruta nueva queda protegida con solo sumarla
+// aquí y reiniciar, sin tocar los roles que ya tienen el permiso.
 //
 // Los permisos de los otros microservicios también se siembran aquí, porque es aquí donde se guardan
 // y se validan: ms_torneos_deportiva no tiene tablas de permisos, solo le pregunta a este servicio
@@ -130,7 +134,8 @@ public class DatabaseSeeder implements CommandLineRunner {
             permission("habilidades", Operation.VIEW, get(SPORTS + "/skills/{id}")),
             permission("habilidades", Operation.LIST, get(SPORTS + "/skills")),
             permission("habilidades", Operation.CREATE, post(SPORTS + "/skills")),
-            permission("habilidades", Operation.UPDATE, put(SPORTS + "/skills/{id}")),
+            permission("habilidades", Operation.UPDATE, put(SPORTS + "/skills/{id}"),
+                    patch(SPORTS + "/skills/{id}/disable"), patch(SPORTS + "/skills/{id}/enable")),
             permission("habilidades", Operation.DELETE, delete(SPORTS + "/skills/{id}")),
 
             // HU-GD-07
@@ -221,24 +226,33 @@ public class DatabaseSeeder implements CommandLineRunner {
     }
 
     private Permission findOrCreatePermission(ModuleType module, PermissionSeed seed) {
-        return permissionRepository.findByModelAndOperation(seed.model(), seed.operation())
+        Permission permission = permissionRepository.findByModelAndOperation(seed.model(), seed.operation())
                 .orElseGet(() -> {
-                    Permission permission = new Permission();
-                    permission.setModule(module);
-                    permission.setModel(seed.model());
-                    permission.setOperation(seed.operation());
-                    for (EndpointSeed endpointSeed : seed.endpoints()) {
-                        // Si alguien ya registró ese endpoint en otro permiso, no se duplica.
-                        if (!permissionEndpointRepository.existsByUrlAndMethod(endpointSeed.url(), endpointSeed.method())) {
-                            PermissionEndpoint endpoint = new PermissionEndpoint();
-                            endpoint.setUrl(endpointSeed.url());
-                            endpoint.setMethod(endpointSeed.method());
-                            endpoint.setPermission(permission);
-                            permission.getEndpoints().add(endpoint);
-                        }
-                    }
-                    return permissionRepository.save(permission);
+                    Permission created = new Permission();
+                    created.setModule(module);
+                    created.setModel(seed.model());
+                    created.setOperation(seed.operation());
+                    return created;
                 });
+
+        // Nuevo o ya existente, el permiso recibe los endpoints que le falten.
+        int added = 0;
+        for (EndpointSeed endpointSeed : seed.endpoints()) {
+            // Si alguien ya registró ese endpoint (en este permiso o en otro), no se duplica.
+            if (!permissionEndpointRepository.existsByUrlAndMethod(endpointSeed.url(), endpointSeed.method())) {
+                PermissionEndpoint endpoint = new PermissionEndpoint();
+                endpoint.setUrl(endpointSeed.url());
+                endpoint.setMethod(endpointSeed.method());
+                endpoint.setPermission(permission);
+                permission.getEndpoints().add(endpoint);
+                added++;
+            }
+        }
+
+        if (permission.getId() != null && added > 0) {
+            log.info("Permiso {} · {}: se le agregaron {} endpoints", seed.model(), seed.operation(), added);
+        }
+        return permissionRepository.save(permission);
     }
 
     // Si ese correo ya existe, se usa ese usuario tal como está (conserva su contraseña).
