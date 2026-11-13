@@ -142,6 +142,9 @@ public class DatabaseSeeder implements CommandLineRunner {
             permission("asignacion-habilidades", Operation.LIST, get(SPORTS + "/player-skills/players/{playerId}"),
                     get(SPORTS + "/player-skills/skills/{skillId}")),
             permission("asignacion-habilidades", Operation.CREATE, post(SPORTS + "/player-skills")),
+            // Cambiar el nivel (1-100) que el jugador tiene en una habilidad.
+            permission("asignacion-habilidades", Operation.UPDATE,
+                    patch(SPORTS + "/player-skills/{playerId}/{skillId}")),
             permission("asignacion-habilidades", Operation.DELETE,
                     delete(SPORTS + "/player-skills/{playerId}/{skillId}")),
 
