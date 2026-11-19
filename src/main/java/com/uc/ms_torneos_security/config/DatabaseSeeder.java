@@ -170,7 +170,26 @@ public class DatabaseSeeder implements CommandLineRunner {
                     get(SPORTS + "/tournament-teams/teams/{teamId}")),
             permission("inscripciones", Operation.CREATE, post(SPORTS + "/tournament-teams")),
             permission("inscripciones", Operation.DELETE,
-                    delete(SPORTS + "/tournament-teams/{tournamentId}/{teamId}"))
+                    delete(SPORTS + "/tournament-teams/{tournamentId}/{teamId}")),
+
+            // HU-GC-03 y HU-GC-05 (las fases de grupos y las finales usan las mismas rutas; reordenar
+            // es una actualización)
+            permission("fases", Operation.VIEW, get(SPORTS + "/phases/{id}")),
+            permission("fases", Operation.LIST, get(SPORTS + "/phases/tournaments/{tournamentId}")),
+            permission("fases", Operation.CREATE, post(SPORTS + "/phases")),
+            permission("fases", Operation.UPDATE, put(SPORTS + "/phases/{id}"),
+                    put(SPORTS + "/phases/tournaments/{tournamentId}/order")),
+            permission("fases", Operation.DELETE, delete(SPORTS + "/phases/{id}")),
+
+            // HU-GC-04 (cada grupo trae sus equipos al consultarlo)
+            permission("grupos", Operation.VIEW, get(SPORTS + "/groups/{id}")),
+            permission("grupos", Operation.LIST, get(SPORTS + "/groups/phases/{phaseId}")),
+            permission("grupos", Operation.CREATE, post(SPORTS + "/groups")),
+            permission("grupos", Operation.UPDATE, put(SPORTS + "/groups/{id}")),
+            permission("grupos", Operation.DELETE, delete(SPORTS + "/groups/{id}")),
+            permission("asignacion-grupos", Operation.CREATE, post(SPORTS + "/group-teams")),
+            permission("asignacion-grupos", Operation.DELETE,
+                    delete(SPORTS + "/group-teams/{groupId}/{teamId}"))
     );
 
     private final UserRepository userRepository;
