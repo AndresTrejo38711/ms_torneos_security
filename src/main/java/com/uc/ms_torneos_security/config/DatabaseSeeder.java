@@ -189,7 +189,16 @@ public class DatabaseSeeder implements CommandLineRunner {
             permission("grupos", Operation.DELETE, delete(SPORTS + "/groups/{id}")),
             permission("asignacion-grupos", Operation.CREATE, post(SPORTS + "/group-teams")),
             permission("asignacion-grupos", Operation.DELETE,
-                    delete(SPORTS + "/group-teams/{groupId}/{teamId}"))
+                    delete(SPORTS + "/group-teams/{groupId}/{teamId}")),
+
+            // HU-GC-06 (iniciar y cancelar un partido cambian su estado: son actualizaciones)
+            permission("partidos", Operation.VIEW, get(SPORTS + "/matches/{id}")),
+            permission("partidos", Operation.LIST, get(SPORTS + "/matches/phases/{phaseId}"),
+                    get(SPORTS + "/matches/tournaments/{tournamentId}")),
+            permission("partidos", Operation.CREATE, post(SPORTS + "/matches")),
+            permission("partidos", Operation.UPDATE, put(SPORTS + "/matches/{id}"),
+                    patch(SPORTS + "/matches/{id}/start"), patch(SPORTS + "/matches/{id}/cancel")),
+            permission("partidos", Operation.DELETE, delete(SPORTS + "/matches/{id}"))
     );
 
     private final UserRepository userRepository;
