@@ -198,7 +198,16 @@ public class DatabaseSeeder implements CommandLineRunner {
             permission("partidos", Operation.CREATE, post(SPORTS + "/matches")),
             permission("partidos", Operation.UPDATE, put(SPORTS + "/matches/{id}"),
                     patch(SPORTS + "/matches/{id}/start"), patch(SPORTS + "/matches/{id}/cancel")),
-            permission("partidos", Operation.DELETE, delete(SPORTS + "/matches/{id}"))
+            permission("partidos", Operation.DELETE, delete(SPORTS + "/matches/{id}")),
+
+            // HU-GC-07 (el resultado se registra y se corrige con la misma ruta, y se consulta con el
+            // partido; va aparte de partidos para poder dar "registrar resultados" sin "editar partidos")
+            permission("resultados", Operation.UPDATE, put(SPORTS + "/matches/{id}/result")),
+            permission("anotaciones", Operation.VIEW, get(SPORTS + "/scores/{id}")),
+            permission("anotaciones", Operation.LIST, get(SPORTS + "/scores/matches/{matchId}")),
+            permission("anotaciones", Operation.CREATE, post(SPORTS + "/scores")),
+            permission("anotaciones", Operation.UPDATE, put(SPORTS + "/scores/{id}")),
+            permission("anotaciones", Operation.DELETE, delete(SPORTS + "/scores/{id}"))
     );
 
     private final UserRepository userRepository;
