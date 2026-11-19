@@ -224,7 +224,12 @@ public class DatabaseSeeder implements CommandLineRunner {
             permission("desarrollo-torneos", Operation.VIEW, get(SPORTS + "/tournaments/{id}/development")),
 
             // HU-GC-10: catálogo de métodos de pago (se siembra en ms_torneos_deportiva, solo se consulta)
-            permission("metodos-pago", Operation.LIST, get(SPORTS + "/payment-methods"))
+            permission("metodos-pago", Operation.LIST, get(SPORTS + "/payment-methods")),
+
+            // HU-GC-11, lo del administrador: fijar las cuotas de un partido (y abrir o cerrar sus
+            // apuestas) y consultar las apuestas de un partido
+            permission("cuotas", Operation.UPDATE, put(SPORTS + "/matches/{id}/betting")),
+            permission("apuestas-partido", Operation.LIST, get(SPORTS + "/bets/matches/{matchId}"))
     );
 
     // Lo que el aficionado gestiona sobre sí mismo (también GESTION_COMPETENCIAS). Van al rol Aficionado,
@@ -237,7 +242,15 @@ public class DatabaseSeeder implements CommandLineRunner {
             permission("metodos-pago-aficionado", Operation.UPDATE, put(SPORTS + "/fan-payment-methods/{id}"),
                     patch(SPORTS + "/fan-payment-methods/{id}/disable"),
                     patch(SPORTS + "/fan-payment-methods/{id}/enable")),
-            permission("metodos-pago-aficionado", Operation.DELETE, delete(SPORTS + "/fan-payment-methods/{id}"))
+            permission("metodos-pago-aficionado", Operation.DELETE, delete(SPORTS + "/fan-payment-methods/{id}")),
+
+            // HU-GC-11 (listar incluye los partidos que reciben apuestas; modificar y cancelar una
+            // apuesta son actualizaciones; no hay eliminar: una apuesta es historial)
+            permission("apuestas", Operation.VIEW, get(SPORTS + "/bets/{id}")),
+            permission("apuestas", Operation.LIST, get(SPORTS + "/bets"), get(SPORTS + "/betting/matches")),
+            permission("apuestas", Operation.CREATE, post(SPORTS + "/bets")),
+            permission("apuestas", Operation.UPDATE, put(SPORTS + "/bets/{id}"),
+                    patch(SPORTS + "/bets/{id}/cancel"))
     );
 
     private final UserRepository userRepository;
