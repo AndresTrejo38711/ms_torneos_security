@@ -207,7 +207,11 @@ public class DatabaseSeeder implements CommandLineRunner {
             permission("anotaciones", Operation.LIST, get(SPORTS + "/scores/matches/{matchId}")),
             permission("anotaciones", Operation.CREATE, post(SPORTS + "/scores")),
             permission("anotaciones", Operation.UPDATE, put(SPORTS + "/scores/{id}")),
-            permission("anotaciones", Operation.DELETE, delete(SPORTS + "/scores/{id}"))
+            permission("anotaciones", Operation.DELETE, delete(SPORTS + "/scores/{id}")),
+
+            // HU-GC-08 (solo consulta: fases, tablas, llaves, partidos y anotaciones del torneo en una
+            // sola respuesta, así basta un permiso para ver el desarrollo)
+            permission("desarrollo-torneos", Operation.VIEW, get(SPORTS + "/tournaments/{id}/development"))
     );
 
     private final UserRepository userRepository;
