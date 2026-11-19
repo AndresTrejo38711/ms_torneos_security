@@ -24,6 +24,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 
 // Al arrancar deja listos los permisos de la plataforma, los roles iniciales y el usuario administrador.
@@ -44,7 +45,8 @@ public class DatabaseSeeder implements CommandLineRunner {
 
     private static final String ADMIN_ROLE = Role.ADMIN_NAME;
 
-    // Rol de las HU del Anexo 2 ("Como administrador deportivo..."): solo el módulo GESTION_DEPORTIVA.
+    // Rol de las HU de los Anexos 2 y 3 ("Como administrador deportivo..."): los módulos
+    // GESTION_DEPORTIVA y GESTION_COMPETENCIAS.
     private static final String SPORTS_ADMIN_ROLE = "Administrador deportivo";
 
     // Un permiso por recurso + operación; cada uno con todos los endpoints que lo ejercen.
@@ -152,6 +154,25 @@ public class DatabaseSeeder implements CommandLineRunner {
             permission("perfil-deportivo", Operation.VIEW, get(SPORTS + "/players/{id}/profile"))
     );
 
+    // Módulo GESTION_COMPETENCIAS: también ms_torneos_deportiva (Anexo 3), con el mismo prefijo.
+    private static final List<PermissionSeed> COMPETITIONS_PERMISSIONS = List.of(
+            // HU-GC-01
+            permission("torneos", Operation.VIEW, get(SPORTS + "/tournaments/{id}")),
+            permission("torneos", Operation.LIST, get(SPORTS + "/tournaments")),
+            permission("torneos", Operation.CREATE, post(SPORTS + "/tournaments")),
+            permission("torneos", Operation.UPDATE, put(SPORTS + "/tournaments/{id}"),
+                    patch(SPORTS + "/tournaments/{id}/disable"), patch(SPORTS + "/tournaments/{id}/enable")),
+            permission("torneos", Operation.DELETE, delete(SPORTS + "/tournaments/{id}")),
+
+            // HU-GC-02 (inscribir recibe uno o varios equipos en la misma petición)
+            permission("inscripciones", Operation.LIST,
+                    get(SPORTS + "/tournament-teams/tournaments/{tournamentId}"),
+                    get(SPORTS + "/tournament-teams/teams/{teamId}")),
+            permission("inscripciones", Operation.CREATE, post(SPORTS + "/tournament-teams")),
+            permission("inscripciones", Operation.DELETE,
+                    delete(SPORTS + "/tournament-teams/{tournamentId}/{teamId}"))
+    );
+
     private final UserRepository userRepository;
 
     private final RoleRepository roleRepository;
@@ -175,22 +196,37 @@ public class DatabaseSeeder implements CommandLineRunner {
     @Override
     @Transactional
     public void run(String... args) {
-        List<Permission> securityPermissions = findOrCreatePermissions(ModuleType.ADMINISTRACION, SECURITY_PERMISSIONS);
-        List<Permission> sportsPermissions = findOrCreatePermissions(ModuleType.GESTION_DEPORTIVA, SPORTS_PERMISSIONS);
+        SeededPermissions security = findOrCreatePermissions(ModuleType.ADMINISTRACION, SECURITY_PERMISSIONS);
+        SeededPermissions sports = findOrCreatePermissions(ModuleType.GESTION_DEPORTIVA, SPORTS_PERMISSIONS);
+        SeededPermissions competitions = findOrCreatePermissions(
+                ModuleType.GESTION_COMPETENCIAS, COMPETITIONS_PERMISSIONS);
 
         // El Administrador tiene todos los permisos. Si le falta alguno, se le vuelve a dar en cada arranque.
         Role adminRole = roleRepository.findByNameIgnoreCase(ADMIN_ROLE)
                 .orElseGet(() -> createRole(ADMIN_ROLE, "Acceso total a la plataforma"));
-        grant(adminRole, securityPermissions);
-        grant(adminRole, sportsPermissions);
+        grant(adminRole, security.all());
+        grant(adminRole, sports.all());
+        grant(adminRole, competitions.all());
 
-        // El Administrador deportivo recibe sus permisos solo cuando se crea el rol: si después alguien
-        // le quita o le agrega permisos desde la matriz, el seeder no se los vuelve a cambiar.
-        if (!roleRepository.existsByNameIgnoreCase(SPORTS_ADMIN_ROLE)) {
-            Role sportsAdminRole = createRole(SPORTS_ADMIN_ROLE,
-                    "Gestiona deportes, equipos, jugadores, contratos y habilidades");
-            grant(sportsAdminRole, sportsPermissions);
-            log.info("Rol {} creado con {} permisos", SPORTS_ADMIN_ROLE, sportsPermissions.size());
+        // El Administrador deportivo recibe todos sus permisos cuando se crea el rol. Después, solo los
+        // permisos que se crean en este arranque (por ejemplo, los de un anexo nuevo): a los que ya
+        // existían no se les cambia nada, así que si alguien se los quitó o se los dio desde la
+        // matriz, el seeder lo respeta.
+        Role sportsAdminRole = roleRepository.findByNameIgnoreCase(SPORTS_ADMIN_ROLE).orElse(null);
+        if (sportsAdminRole == null) {
+            sportsAdminRole = createRole(SPORTS_ADMIN_ROLE,
+                    "Gestiona deportes, equipos, jugadores, habilidades, torneos y competencias");
+            grant(sportsAdminRole, sports.all());
+            grant(sportsAdminRole, competitions.all());
+            log.info("Rol {} creado con {} permisos", SPORTS_ADMIN_ROLE,
+                    sports.all().size() + competitions.all().size());
+        } else {
+            List<Permission> created = new ArrayList<>(sports.created());
+            created.addAll(competitions.created());
+            if (!created.isEmpty()) {
+                grant(sportsAdminRole, created);
+                log.info("Rol {}: recibió {} permisos nuevos", SPORTS_ADMIN_ROLE, created.size());
+            }
         }
 
         User admin = findOrCreateAdmin();
@@ -202,7 +238,7 @@ public class DatabaseSeeder implements CommandLineRunner {
         }
 
         log.info("Administrador listo: {} con el rol {} ({} permisos)", adminEmail, ADMIN_ROLE,
-                securityPermissions.size() + sportsPermissions.size());
+                security.all().size() + sports.all().size() + competitions.all().size());
     }
 
     private Role createRole(String name, String description) {
@@ -212,8 +248,19 @@ public class DatabaseSeeder implements CommandLineRunner {
         return roleRepository.save(role);
     }
 
-    private List<Permission> findOrCreatePermissions(ModuleType module, List<PermissionSeed> seeds) {
-        return seeds.stream().map(seed -> findOrCreatePermission(module, seed)).toList();
+    // Devuelve todos los permisos de la lista y, aparte, los que no existían y se crearon ahora.
+    private SeededPermissions findOrCreatePermissions(ModuleType module, List<PermissionSeed> seeds) {
+        List<Permission> all = new ArrayList<>();
+        List<Permission> created = new ArrayList<>();
+        for (PermissionSeed seed : seeds) {
+            boolean isNew = permissionRepository.findByModelAndOperation(seed.model(), seed.operation()).isEmpty();
+            Permission permission = findOrCreatePermission(module, seed);
+            all.add(permission);
+            if (isNew) {
+                created.add(permission);
+            }
+        }
+        return new SeededPermissions(all, created);
     }
 
     // Le da al rol los permisos que todavía no tenga.
@@ -299,5 +346,8 @@ public class DatabaseSeeder implements CommandLineRunner {
     }
 
     private record PermissionSeed(String model, Operation operation, List<EndpointSeed> endpoints) {
+    }
+
+    private record SeededPermissions(List<Permission> all, List<Permission> created) {
     }
 }

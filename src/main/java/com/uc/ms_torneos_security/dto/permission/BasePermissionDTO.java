@@ -19,7 +19,7 @@ import java.util.List;
 public abstract class BasePermissionDTO {
 
     @NotNull(
-            message = "El módulo es obligatorio (ADMINISTRACION, GESTION_DEPORTIVA, COMERCIAL, INFRAESTRUCTURA o REPORTES)"
+            message = "El módulo es obligatorio (ADMINISTRACION, GESTION_DEPORTIVA, GESTION_COMPETENCIAS, COMERCIAL, INFRAESTRUCTURA o REPORTES)"
     )
     private ModuleType module;
 
