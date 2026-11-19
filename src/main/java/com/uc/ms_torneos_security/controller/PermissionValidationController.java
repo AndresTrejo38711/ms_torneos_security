@@ -6,6 +6,7 @@ import com.uc.ms_torneos_security.entity.HttpMethodType;
 import com.uc.ms_torneos_security.exception.ApplicationException;
 import com.uc.ms_torneos_security.exception.ErrorCase;
 import com.uc.ms_torneos_security.service.PermissionService;
+import com.uc.ms_torneos_security.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
@@ -18,13 +19,16 @@ import java.util.Locale;
 
 // Validación remota de permisos: otro microservicio reenvía el JWT que recibió del cliente y
 // pregunta si ese usuario puede invocar una URL y un método. Responde 200 con la decisión;
-// convertir "allowed: false" en 403 le toca al microservicio que consulta.
+// convertir "allowed: false" en 403 le toca al microservicio que consulta. Si se permite, también
+// dice quién es el usuario (id y correo), para lo que es "mío" en el otro microservicio.
 @RestController
 @RequestMapping("/api/internal/security")
 @RequiredArgsConstructor
 public class PermissionValidationController {
 
     private final PermissionService permissionService;
+
+    private final UserService userService;
 
     @PostMapping("/permissions-validation")
     public PermissionValidationResponseDTO validate(
@@ -51,6 +55,10 @@ public class PermissionValidationController {
             );
         }
 
-        return new PermissionValidationResponseDTO(allowed);
+        if (!allowed) {
+            return PermissionValidationResponseDTO.denied();
+        }
+        String email = userService.findById(userId).getEmail();
+        return new PermissionValidationResponseDTO(true, userId, email);
     }
 }

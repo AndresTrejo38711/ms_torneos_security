@@ -26,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 // Al arrancar deja listos los permisos de la plataforma, los roles iniciales y el usuario administrador.
 // Sin esto, con la API protegida nadie podría entrar.
@@ -48,6 +49,15 @@ public class DatabaseSeeder implements CommandLineRunner {
     // Rol de las HU de los Anexos 2 y 3 ("Como administrador deportivo..."): los módulos
     // GESTION_DEPORTIVA y GESTION_COMPETENCIAS.
     private static final String SPORTS_ADMIN_ROLE = "Administrador deportivo";
+
+    // Rol de las HU del Anexo 3 que dicen "Como aficionado..." (métodos de pago y, luego, apuestas).
+    // Se crea aquí, pero nadie lo recibe solo: quien se registra queda sin rol y el administrador se
+    // lo asigna.
+    private static final String FAN_ROLE = "Aficionado";
+
+    // Recursos de COMPETITIONS_PERMISSIONS que el Aficionado también necesita (el catálogo de métodos
+    // de pago, para elegir el tipo al registrar el suyo).
+    private static final Set<String> FAN_SHARED_MODELS = Set.of("metodos-pago");
 
     // Un permiso por recurso + operación; cada uno con todos los endpoints que lo ejercen.
     // Módulo ADMINISTRACION: este microservicio.
@@ -211,7 +221,23 @@ public class DatabaseSeeder implements CommandLineRunner {
 
             // HU-GC-08 (solo consulta: fases, tablas, llaves, partidos y anotaciones del torneo en una
             // sola respuesta, así basta un permiso para ver el desarrollo)
-            permission("desarrollo-torneos", Operation.VIEW, get(SPORTS + "/tournaments/{id}/development"))
+            permission("desarrollo-torneos", Operation.VIEW, get(SPORTS + "/tournaments/{id}/development")),
+
+            // HU-GC-10: catálogo de métodos de pago (se siembra en ms_torneos_deportiva, solo se consulta)
+            permission("metodos-pago", Operation.LIST, get(SPORTS + "/payment-methods"))
+    );
+
+    // Lo que el aficionado gestiona sobre sí mismo (también GESTION_COMPETENCIAS). Van al rol Aficionado,
+    // no al Administrador deportivo: cada aficionado solo ve y cambia lo suyo.
+    private static final List<PermissionSeed> FAN_PERMISSIONS = List.of(
+            // HU-GC-10 (activar y desactivar son actualizaciones)
+            permission("metodos-pago-aficionado", Operation.VIEW, get(SPORTS + "/fan-payment-methods/{id}")),
+            permission("metodos-pago-aficionado", Operation.LIST, get(SPORTS + "/fan-payment-methods")),
+            permission("metodos-pago-aficionado", Operation.CREATE, post(SPORTS + "/fan-payment-methods")),
+            permission("metodos-pago-aficionado", Operation.UPDATE, put(SPORTS + "/fan-payment-methods/{id}"),
+                    patch(SPORTS + "/fan-payment-methods/{id}/disable"),
+                    patch(SPORTS + "/fan-payment-methods/{id}/enable")),
+            permission("metodos-pago-aficionado", Operation.DELETE, delete(SPORTS + "/fan-payment-methods/{id}"))
     );
 
     private final UserRepository userRepository;
@@ -241,6 +267,7 @@ public class DatabaseSeeder implements CommandLineRunner {
         SeededPermissions sports = findOrCreatePermissions(ModuleType.GESTION_DEPORTIVA, SPORTS_PERMISSIONS);
         SeededPermissions competitions = findOrCreatePermissions(
                 ModuleType.GESTION_COMPETENCIAS, COMPETITIONS_PERMISSIONS);
+        SeededPermissions fans = findOrCreatePermissions(ModuleType.GESTION_COMPETENCIAS, FAN_PERMISSIONS);
 
         // El Administrador tiene todos los permisos. Si le falta alguno, se le vuelve a dar en cada arranque.
         Role adminRole = roleRepository.findByNameIgnoreCase(ADMIN_ROLE)
@@ -248,6 +275,7 @@ public class DatabaseSeeder implements CommandLineRunner {
         grant(adminRole, security.all());
         grant(adminRole, sports.all());
         grant(adminRole, competitions.all());
+        grant(adminRole, fans.all());
 
         // El Administrador deportivo recibe todos sus permisos cuando se crea el rol. Después, solo los
         // permisos que se crean en este arranque (por ejemplo, los de un anexo nuevo): a los que ya
@@ -270,6 +298,8 @@ public class DatabaseSeeder implements CommandLineRunner {
             }
         }
 
+        seedFanRole(competitions, fans);
+
         User admin = findOrCreateAdmin();
         if (!userRoleRepository.existsByUserIdAndRoleId(admin.getId(), adminRole.getId())) {
             UserRole userRole = new UserRole();
@@ -279,7 +309,33 @@ public class DatabaseSeeder implements CommandLineRunner {
         }
 
         log.info("Administrador listo: {} con el rol {} ({} permisos)", adminEmail, ADMIN_ROLE,
-                security.all().size() + sports.all().size() + competitions.all().size());
+                security.all().size() + sports.all().size() + competitions.all().size() + fans.all().size());
+    }
+
+    // Igual que el Administrador deportivo: todos sus permisos al crear el rol y, después, solo los que
+    // se crean en este arranque. Sus permisos son los del aficionado y los compartidos del catálogo.
+    private void seedFanRole(SeededPermissions competitions, SeededPermissions fans) {
+        Role fanRole = roleRepository.findByNameIgnoreCase(FAN_ROLE).orElse(null);
+        if (fanRole == null) {
+            fanRole = createRole(FAN_ROLE, "Gestiona sus métodos de pago y sus apuestas");
+            List<Permission> all = new ArrayList<>(fans.all());
+            all.addAll(sharedWithFans(competitions.all()));
+            grant(fanRole, all);
+            log.info("Rol {} creado con {} permisos", FAN_ROLE, all.size());
+            return;
+        }
+        List<Permission> created = new ArrayList<>(fans.created());
+        created.addAll(sharedWithFans(competitions.created()));
+        if (!created.isEmpty()) {
+            grant(fanRole, created);
+            log.info("Rol {}: recibió {} permisos nuevos", FAN_ROLE, created.size());
+        }
+    }
+
+    private static List<Permission> sharedWithFans(List<Permission> permissions) {
+        return permissions.stream()
+                .filter(permission -> FAN_SHARED_MODELS.contains(permission.getModel()))
+                .toList();
     }
 
     private Role createRole(String name, String description) {
