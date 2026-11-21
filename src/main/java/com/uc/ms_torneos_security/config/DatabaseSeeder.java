@@ -50,7 +50,7 @@ public class DatabaseSeeder implements CommandLineRunner {
     // GESTION_DEPORTIVA, GESTION_COMPETENCIAS y GESTION_ESCENARIOS.
     private static final String SPORTS_ADMIN_ROLE = "Administrador deportivo";
 
-    // Rol de las HU del Anexo 3 que dicen "Como aficionado..." (métodos de pago y, luego, apuestas).
+    // Rol de las HU que dicen "Como aficionado..." (Anexo 3: métodos de pago y apuestas; Anexo 4: boletos).
     // Se crea aquí, pero nadie lo recibe solo: quien se registra queda sin rol y el administrador se
     // lo asigna.
     private static final String FAN_ROLE = "Aficionado";
@@ -278,7 +278,23 @@ public class DatabaseSeeder implements CommandLineRunner {
             permission("localidades", Operation.CREATE, post(SPORTS + "/localities")),
             permission("localidades", Operation.UPDATE, put(SPORTS + "/localities/{id}"),
                     patch(SPORTS + "/localities/{id}/disable"), patch(SPORTS + "/localities/{id}/enable")),
-            permission("localidades", Operation.DELETE, delete(SPORTS + "/localities/{id}"))
+            permission("localidades", Operation.DELETE, delete(SPORTS + "/localities/{id}")),
+
+            // HU-GE-04, lo del administrador: configurar la venta de entradas de un partido (precio por
+            // localidad, abrirla o cerrarla) y consultar los boletos vendidos de un partido
+            permission("venta-entradas", Operation.VIEW, get(SPORTS + "/matches/{id}/ticketing")),
+            permission("venta-entradas", Operation.UPDATE, put(SPORTS + "/matches/{id}/ticketing")),
+            permission("boletos-partido", Operation.LIST, get(SPORTS + "/tickets/matches/{matchId}"))
+    );
+
+    // Lo que el aficionado hace sobre sí mismo en el Anexo 4 (también GESTION_ESCENARIOS). Va al rol
+    // Aficionado, no al Administrador deportivo.
+    private static final List<PermissionSeed> VENUE_FAN_PERMISSIONS = List.of(
+            // HU-GE-04 (listar incluye los partidos que venden boletos; no hay eliminar: un boleto es
+            // historial)
+            permission("boletos", Operation.VIEW, get(SPORTS + "/tickets/{id}")),
+            permission("boletos", Operation.LIST, get(SPORTS + "/tickets"), get(SPORTS + "/ticketing/matches")),
+            permission("boletos", Operation.CREATE, post(SPORTS + "/tickets"))
     );
 
     private final UserRepository userRepository;
@@ -310,6 +326,7 @@ public class DatabaseSeeder implements CommandLineRunner {
                 ModuleType.GESTION_COMPETENCIAS, COMPETITIONS_PERMISSIONS);
         SeededPermissions fans = findOrCreatePermissions(ModuleType.GESTION_COMPETENCIAS, FAN_PERMISSIONS);
         SeededPermissions venues = findOrCreatePermissions(ModuleType.GESTION_ESCENARIOS, VENUES_PERMISSIONS);
+        SeededPermissions venueFans = findOrCreatePermissions(ModuleType.GESTION_ESCENARIOS, VENUE_FAN_PERMISSIONS);
 
         // El Administrador tiene todos los permisos. Si le falta alguno, se le vuelve a dar en cada arranque.
         Role adminRole = roleRepository.findByNameIgnoreCase(ADMIN_ROLE)
@@ -319,6 +336,7 @@ public class DatabaseSeeder implements CommandLineRunner {
         grant(adminRole, competitions.all());
         grant(adminRole, fans.all());
         grant(adminRole, venues.all());
+        grant(adminRole, venueFans.all());
 
         // El Administrador deportivo recibe todos sus permisos cuando se crea el rol. Después, solo los
         // permisos que se crean en este arranque (por ejemplo, los de un anexo nuevo): a los que ya
@@ -343,7 +361,7 @@ public class DatabaseSeeder implements CommandLineRunner {
             }
         }
 
-        seedFanRole(competitions, fans);
+        seedFanRole(competitions, fans, venueFans);
 
         User admin = findOrCreateAdmin();
         if (!userRoleRepository.existsByUserIdAndRoleId(admin.getId(), adminRole.getId())) {
@@ -355,22 +373,26 @@ public class DatabaseSeeder implements CommandLineRunner {
 
         log.info("Administrador listo: {} con el rol {} ({} permisos)", adminEmail, ADMIN_ROLE,
                 security.all().size() + sports.all().size() + competitions.all().size() + fans.all().size()
-                        + venues.all().size());
+                        + venues.all().size() + venueFans.all().size());
     }
 
     // Igual que el Administrador deportivo: todos sus permisos al crear el rol y, después, solo los que
-    // se crean en este arranque. Sus permisos son los del aficionado y los compartidos del catálogo.
-    private void seedFanRole(SeededPermissions competitions, SeededPermissions fans) {
+    // se crean en este arranque. Sus permisos son los del aficionado (Anexos 3 y 4) y los compartidos
+    // del catálogo.
+    private void seedFanRole(SeededPermissions competitions, SeededPermissions fans,
+                             SeededPermissions venueFans) {
         Role fanRole = roleRepository.findByNameIgnoreCase(FAN_ROLE).orElse(null);
         if (fanRole == null) {
-            fanRole = createRole(FAN_ROLE, "Gestiona sus métodos de pago y sus apuestas");
+            fanRole = createRole(FAN_ROLE, "Gestiona sus métodos de pago, sus apuestas y sus boletos");
             List<Permission> all = new ArrayList<>(fans.all());
+            all.addAll(venueFans.all());
             all.addAll(sharedWithFans(competitions.all()));
             grant(fanRole, all);
             log.info("Rol {} creado con {} permisos", FAN_ROLE, all.size());
             return;
         }
         List<Permission> created = new ArrayList<>(fans.created());
+        created.addAll(venueFans.created());
         created.addAll(sharedWithFans(competitions.created()));
         if (!created.isEmpty()) {
             grant(fanRole, created);
