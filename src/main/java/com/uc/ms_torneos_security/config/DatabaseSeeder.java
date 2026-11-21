@@ -46,8 +46,8 @@ public class DatabaseSeeder implements CommandLineRunner {
 
     private static final String ADMIN_ROLE = Role.ADMIN_NAME;
 
-    // Rol de las HU de los Anexos 2 y 3 ("Como administrador deportivo..."): los módulos
-    // GESTION_DEPORTIVA y GESTION_COMPETENCIAS.
+    // Rol de las HU de los Anexos 2, 3 y 4 ("Como administrador deportivo..."): los módulos
+    // GESTION_DEPORTIVA, GESTION_COMPETENCIAS y GESTION_ESCENARIOS.
     private static final String SPORTS_ADMIN_ROLE = "Administrador deportivo";
 
     // Rol de las HU del Anexo 3 que dicen "Como aficionado..." (métodos de pago y, luego, apuestas).
@@ -253,6 +253,34 @@ public class DatabaseSeeder implements CommandLineRunner {
                     patch(SPORTS + "/bets/{id}/cancel"))
     );
 
+    // Módulo GESTION_ESCENARIOS: también ms_torneos_deportiva (Anexo 4), con el mismo prefijo.
+    private static final List<PermissionSeed> VENUES_PERMISSIONS = List.of(
+            // HU-GE-01 (el detalle trae los escenarios de adentro y las localidades; activar y
+            // desactivar son actualizaciones)
+            permission("escenarios", Operation.VIEW, get(SPORTS + "/venues/{id}")),
+            permission("escenarios", Operation.LIST, get(SPORTS + "/venues")),
+            permission("escenarios", Operation.CREATE, post(SPORTS + "/venues")),
+            permission("escenarios", Operation.UPDATE, put(SPORTS + "/venues/{id}"),
+                    patch(SPORTS + "/venues/{id}/disable"), patch(SPORTS + "/venues/{id}/enable")),
+            permission("escenarios", Operation.DELETE, delete(SPORTS + "/venues/{id}")),
+
+            // HU-GE-02 (asignar recibe uno o varios escenarios en la misma petición)
+            permission("escenarios-torneo", Operation.LIST,
+                    get(SPORTS + "/tournament-venues/tournaments/{tournamentId}"),
+                    get(SPORTS + "/tournament-venues/venues/{venueId}")),
+            permission("escenarios-torneo", Operation.CREATE, post(SPORTS + "/tournament-venues")),
+            permission("escenarios-torneo", Operation.DELETE,
+                    delete(SPORTS + "/tournament-venues/{tournamentId}/{venueId}")),
+
+            // HU-GE-03
+            permission("localidades", Operation.VIEW, get(SPORTS + "/localities/{id}")),
+            permission("localidades", Operation.LIST, get(SPORTS + "/localities/venues/{venueId}")),
+            permission("localidades", Operation.CREATE, post(SPORTS + "/localities")),
+            permission("localidades", Operation.UPDATE, put(SPORTS + "/localities/{id}"),
+                    patch(SPORTS + "/localities/{id}/disable"), patch(SPORTS + "/localities/{id}/enable")),
+            permission("localidades", Operation.DELETE, delete(SPORTS + "/localities/{id}"))
+    );
+
     private final UserRepository userRepository;
 
     private final RoleRepository roleRepository;
@@ -281,6 +309,7 @@ public class DatabaseSeeder implements CommandLineRunner {
         SeededPermissions competitions = findOrCreatePermissions(
                 ModuleType.GESTION_COMPETENCIAS, COMPETITIONS_PERMISSIONS);
         SeededPermissions fans = findOrCreatePermissions(ModuleType.GESTION_COMPETENCIAS, FAN_PERMISSIONS);
+        SeededPermissions venues = findOrCreatePermissions(ModuleType.GESTION_ESCENARIOS, VENUES_PERMISSIONS);
 
         // El Administrador tiene todos los permisos. Si le falta alguno, se le vuelve a dar en cada arranque.
         Role adminRole = roleRepository.findByNameIgnoreCase(ADMIN_ROLE)
@@ -289,6 +318,7 @@ public class DatabaseSeeder implements CommandLineRunner {
         grant(adminRole, sports.all());
         grant(adminRole, competitions.all());
         grant(adminRole, fans.all());
+        grant(adminRole, venues.all());
 
         // El Administrador deportivo recibe todos sus permisos cuando se crea el rol. Después, solo los
         // permisos que se crean en este arranque (por ejemplo, los de un anexo nuevo): a los que ya
@@ -297,14 +327,16 @@ public class DatabaseSeeder implements CommandLineRunner {
         Role sportsAdminRole = roleRepository.findByNameIgnoreCase(SPORTS_ADMIN_ROLE).orElse(null);
         if (sportsAdminRole == null) {
             sportsAdminRole = createRole(SPORTS_ADMIN_ROLE,
-                    "Gestiona deportes, equipos, jugadores, habilidades, torneos y competencias");
+                    "Gestiona deportes, equipos, jugadores, habilidades, torneos, competencias y escenarios");
             grant(sportsAdminRole, sports.all());
             grant(sportsAdminRole, competitions.all());
+            grant(sportsAdminRole, venues.all());
             log.info("Rol {} creado con {} permisos", SPORTS_ADMIN_ROLE,
-                    sports.all().size() + competitions.all().size());
+                    sports.all().size() + competitions.all().size() + venues.all().size());
         } else {
             List<Permission> created = new ArrayList<>(sports.created());
             created.addAll(competitions.created());
+            created.addAll(venues.created());
             if (!created.isEmpty()) {
                 grant(sportsAdminRole, created);
                 log.info("Rol {}: recibió {} permisos nuevos", SPORTS_ADMIN_ROLE, created.size());
@@ -322,7 +354,8 @@ public class DatabaseSeeder implements CommandLineRunner {
         }
 
         log.info("Administrador listo: {} con el rol {} ({} permisos)", adminEmail, ADMIN_ROLE,
-                security.all().size() + sports.all().size() + competitions.all().size() + fans.all().size());
+                security.all().size() + sports.all().size() + competitions.all().size() + fans.all().size()
+                        + venues.all().size());
     }
 
     // Igual que el Administrador deportivo: todos sus permisos al crear el rol y, después, solo los que
