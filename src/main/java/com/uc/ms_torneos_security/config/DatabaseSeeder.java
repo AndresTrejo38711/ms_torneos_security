@@ -284,17 +284,27 @@ public class DatabaseSeeder implements CommandLineRunner {
             // localidad, abrirla o cerrarla) y consultar los boletos vendidos de un partido
             permission("venta-entradas", Operation.VIEW, get(SPORTS + "/matches/{id}/ticketing")),
             permission("venta-entradas", Operation.UPDATE, put(SPORTS + "/matches/{id}/ticketing")),
-            permission("boletos-partido", Operation.LIST, get(SPORTS + "/tickets/matches/{matchId}"))
+            permission("boletos-partido", Operation.LIST, get(SPORTS + "/tickets/matches/{matchId}")),
+
+            // HU-GE-05 (los aficionados que siguen a un equipo)
+            permission("aficionados-equipo", Operation.LIST, get(SPORTS + "/fan-teams/teams/{teamId}/fans"))
     );
 
     // Lo que el aficionado hace sobre sí mismo en el Anexo 4 (también GESTION_ESCENARIOS). Va al rol
     // Aficionado, no al Administrador deportivo.
     private static final List<PermissionSeed> VENUE_FAN_PERMISSIONS = List.of(
-            // HU-GE-04 (listar incluye los partidos que venden boletos; no hay eliminar: un boleto es
-            // historial)
+            // HU-GE-04 (listar incluye los partidos que venden boletos; actualizar es confirmar el pago
+            // en ePayco; no hay eliminar: un boleto es historial)
             permission("boletos", Operation.VIEW, get(SPORTS + "/tickets/{id}")),
             permission("boletos", Operation.LIST, get(SPORTS + "/tickets"), get(SPORTS + "/ticketing/matches")),
-            permission("boletos", Operation.CREATE, post(SPORTS + "/tickets"))
+            permission("boletos", Operation.CREATE, post(SPORTS + "/tickets")),
+            permission("boletos", Operation.UPDATE, post(SPORTS + "/tickets/payments/{reference}/confirm")),
+
+            // HU-GE-05 (listar incluye los equipos que puede seguir; crear es seguir uno o varios y
+            // eliminar es dejar de seguir uno)
+            permission("equipos-interes", Operation.LIST, get(SPORTS + "/fan-teams"), get(SPORTS + "/fan-teams/teams")),
+            permission("equipos-interes", Operation.CREATE, post(SPORTS + "/fan-teams")),
+            permission("equipos-interes", Operation.DELETE, delete(SPORTS + "/fan-teams/{teamId}"))
     );
 
     private final UserRepository userRepository;
@@ -383,7 +393,7 @@ public class DatabaseSeeder implements CommandLineRunner {
                              SeededPermissions venueFans) {
         Role fanRole = roleRepository.findByNameIgnoreCase(FAN_ROLE).orElse(null);
         if (fanRole == null) {
-            fanRole = createRole(FAN_ROLE, "Gestiona sus métodos de pago, sus apuestas y sus boletos");
+            fanRole = createRole(FAN_ROLE, "Gestiona sus métodos de pago, sus apuestas, sus boletos y sus equipos de interés");
             List<Permission> all = new ArrayList<>(fans.all());
             all.addAll(venueFans.all());
             all.addAll(sharedWithFans(competitions.all()));
