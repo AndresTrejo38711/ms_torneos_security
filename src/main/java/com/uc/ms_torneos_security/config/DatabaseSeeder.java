@@ -26,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 // Al arrancar deja listos los permisos de la plataforma, los roles iniciales y el usuario administrador.
@@ -55,9 +56,12 @@ public class DatabaseSeeder implements CommandLineRunner {
     // lo asigna.
     private static final String FAN_ROLE = "Aficionado";
 
-    // Recursos de COMPETITIONS_PERMISSIONS que el Aficionado también necesita (el catálogo de métodos
-    // de pago, para elegir el tipo al registrar el suyo).
-    private static final Set<String> FAN_SHARED_MODELS = Set.of("metodos-pago");
+    // Permisos de COMPETITIONS_PERMISSIONS que el Aficionado también necesita: el catálogo de métodos de
+    // pago (para elegir el tipo al registrar el suyo) y ver el seguimiento en vivo de un partido (la
+    // HU-GC-09 es "como administrador deportivo e hincha"; el hincha mira, no mueve nada).
+    private static final Map<String, Set<Operation>> FAN_SHARED = Map.of(
+            "metodos-pago", Set.of(Operation.LIST),
+            "seguimiento", Set.of(Operation.LIST, Operation.VIEW));
 
     // Un permiso por recurso + operación; cada uno con todos los endpoints que lo ejercen.
     // Módulo ADMINISTRACION: este microservicio.
@@ -223,6 +227,17 @@ public class DatabaseSeeder implements CommandLineRunner {
             // HU-GC-08 (solo consulta: fases, tablas, llaves, partidos y anotaciones del torneo en una
             // sola respuesta, así basta un permiso para ver el desarrollo)
             permission("desarrollo-torneos", Operation.VIEW, get(SPORTS + "/tournaments/{id}/development")),
+
+            // HU-GC-09: seguimiento en vivo del partido. Consultar (la lista de partidos con seguimiento,
+            // la pizarra y su historial) también lo puede el Aficionado; iniciar, pausar, finalizar y
+            // registrar posiciones (lo que hace el script que simula el partido) solo el administrador.
+            permission("seguimiento", Operation.LIST, get(SPORTS + "/tracking/matches")),
+            permission("seguimiento", Operation.VIEW, get(SPORTS + "/tracking/matches/{matchId}"),
+                    get(SPORTS + "/tracking/matches/{matchId}/positions")),
+            permission("seguimiento", Operation.UPDATE, patch(SPORTS + "/tracking/matches/{matchId}/start"),
+                    patch(SPORTS + "/tracking/matches/{matchId}/pause"),
+                    patch(SPORTS + "/tracking/matches/{matchId}/finish"),
+                    post(SPORTS + "/tracking/matches/{matchId}/positions")),
 
             // HU-GC-10: catálogo de métodos de pago (se siembra en ms_torneos_deportiva, solo se consulta)
             permission("metodos-pago", Operation.LIST, get(SPORTS + "/payment-methods")),
@@ -394,7 +409,7 @@ public class DatabaseSeeder implements CommandLineRunner {
                              SeededPermissions venueFans) {
         Role fanRole = roleRepository.findByNameIgnoreCase(FAN_ROLE).orElse(null);
         if (fanRole == null) {
-            fanRole = createRole(FAN_ROLE, "Gestiona sus métodos de pago, sus apuestas, sus boletos y sus equipos de interés");
+            fanRole = createRole(FAN_ROLE, "Gestiona sus métodos de pago, sus apuestas, sus boletos y sus equipos de interés, y sigue los partidos en vivo");
             List<Permission> all = new ArrayList<>(fans.all());
             all.addAll(venueFans.all());
             all.addAll(sharedWithFans(competitions.all()));
@@ -413,7 +428,8 @@ public class DatabaseSeeder implements CommandLineRunner {
 
     private static List<Permission> sharedWithFans(List<Permission> permissions) {
         return permissions.stream()
-                .filter(permission -> FAN_SHARED_MODELS.contains(permission.getModel()))
+                .filter(permission -> FAN_SHARED.getOrDefault(permission.getModel(), Set.of())
+                        .contains(permission.getOperation()))
                 .toList();
     }
 
