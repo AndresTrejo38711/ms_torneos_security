@@ -24,9 +24,15 @@ CREATE DATABASE torneos_security_db;
 
 Las tablas las crea Hibernate al arrancar (`spring.jpa.hibernate.ddl-auto=update`).
 
-### 2. Variables de entorno
+### 2. Archivo `.env`
 
-`application.properties` no guarda ninguna clave: las toma de estas variables.
+`application.properties` no guarda ninguna clave: las lee del archivo `.env` de esta carpeta (línea `spring.config.import`). Cópialo de la plantilla y llena los valores:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+El `.env` está en `.gitignore`: nunca se sube al repositorio. Si una variable también existe en las variables de entorno de Windows (por ejemplo, de un `setx` anterior), gana la de Windows.
 
 | Variable | Qué es | De dónde sale |
 |---|---|---|
@@ -38,6 +44,8 @@ Las tablas las crea Hibernate al arrancar (`spring.jpa.hibernate.ddl-auto=update
 | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | App OAuth de GitHub | GitHub → Settings → Developer settings → OAuth Apps |
 | `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET` | Login con Microsoft, todavía sin implementar | Cualquier texto, por ejemplo `pendiente`. Deben existir: sin ellas el backend no arranca |
 
+Si no van a probar el login con Google o GitHub, sus cuatro variables también pueden quedar en `pendiente`: el resto funciona.
+
 Para generar `JWT_SECRET` en PowerShell:
 
 ```powershell
@@ -46,15 +54,7 @@ $bytes = New-Object byte[] 48
 [Convert]::ToBase64String($bytes)
 ```
 
-Para guardar cada variable en tu usuario de Windows:
-
-```powershell
-setx JWT_SECRET "la-clave-generada"
-setx DB_PASSWORD "tu-contraseña-de-mysql"
-# ...una línea por cada variable de la tabla
-```
-
-`setx` no cambia las terminales que ya están abiertas: ciérralas, o reinicia VS Code, antes de arrancar el backend.
+En el `.env` cada línea es `NOMBRE=valor`, sin comillas (quedarían como parte del valor). Si un valor tiene `\`, escríbelo doble (`\`).
 
 - Las credenciales de Google y GitHub pueden ser las mismas en todos los PCs del equipo. Compártanlas por privado, nunca en el repositorio.
 - Si crean una app nueva, la URL de retorno es `http://localhost:8181/login/oauth2/code/google` (o `/github`). En GitHub, la página de inicio es `http://localhost:5173`.
@@ -82,7 +82,7 @@ En los arranques siguientes solo crea lo que falte. Por ejemplo, si al rol Admin
 
 | Mensaje | Causa |
 |---|---|
-| `Could not resolve placeholder '...'` | Falta esa variable de entorno, o la terminal se abrió antes del `setx` |
+| `Could not resolve placeholder '...'` | Falta esa variable en el `.env`, o no hay `.env` en la carpeta desde donde se arranca |
 | `La clave JWT (JWT_SECRET) debe tener al menos 32 bytes` | La clave es muy corta |
 | `Access denied for user 'root'` | `DB_PASSWORD` no coincide con la contraseña de MySQL |
 | `Unknown database 'torneos_security_db'` | Falta crear la base (paso 1) |
@@ -91,7 +91,7 @@ En los arranques siguientes solo crea lo que falte. Por ejemplo, si al rol Admin
 
 ## Pruebas
 
-`.\mvnw.cmd test` arranca la aplicación completa, así que necesita MySQL y las variables de entorno, y escribe en `torneos_security_db`. Para generar el `.jar` sin correrlas:
+`.\mvnw.cmd test` arranca la aplicación completa, así que necesita MySQL y el `.env`, y escribe en `torneos_security_db`. Para generar el `.jar` sin correrlas:
 
 ```powershell
 .\mvnw.cmd package -DskipTests

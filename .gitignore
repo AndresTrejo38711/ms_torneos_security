@@ -34,3 +34,6 @@ build/
 
 ### Postman ###
 /postman/
+
+### Claves de cada PC (ver .env.example) ###
+.env
