@@ -229,15 +229,18 @@ public class DatabaseSeeder implements CommandLineRunner {
             permission("desarrollo-torneos", Operation.VIEW, get(SPORTS + "/tournaments/{id}/development")),
 
             // HU-GC-09: seguimiento en vivo del partido. Consultar (la lista de partidos con seguimiento,
-            // la pizarra y su historial) también lo puede el Aficionado; iniciar, pausar, finalizar y
-            // registrar posiciones (lo que hace el script que simula el partido) solo el administrador.
+            // la pizarra, su historial y las fotos de los jugadores) también lo puede el Aficionado; iniciar,
+            // pausar, finalizar, registrar posiciones y simular el partido desde la pizarra, solo el administrador.
             permission("seguimiento", Operation.LIST, get(SPORTS + "/tracking/matches")),
             permission("seguimiento", Operation.VIEW, get(SPORTS + "/tracking/matches/{matchId}"),
-                    get(SPORTS + "/tracking/matches/{matchId}/positions")),
+                    get(SPORTS + "/tracking/matches/{matchId}/positions"),
+                    get(SPORTS + "/tracking/matches/{matchId}/photos")),
             permission("seguimiento", Operation.UPDATE, patch(SPORTS + "/tracking/matches/{matchId}/start"),
                     patch(SPORTS + "/tracking/matches/{matchId}/pause"),
                     patch(SPORTS + "/tracking/matches/{matchId}/finish"),
-                    post(SPORTS + "/tracking/matches/{matchId}/positions")),
+                    post(SPORTS + "/tracking/matches/{matchId}/positions"),
+                    patch(SPORTS + "/tracking/matches/{matchId}/simulation/start"),
+                    patch(SPORTS + "/tracking/matches/{matchId}/simulation/stop")),
 
             // HU-GC-10: catálogo de métodos de pago (se siembra en ms_torneos_deportiva, solo se consulta)
             permission("metodos-pago", Operation.LIST, get(SPORTS + "/payment-methods")),
