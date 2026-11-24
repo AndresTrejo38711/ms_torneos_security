@@ -26,8 +26,10 @@ public class Profile {
     )
     private String phone;
 
+    // La foto que se sube en "Mi perfil" (HU-SE-02), ya reducida por el front, guardada como texto
+    // "data:image/jpeg;base64,...". Las que se registraron antes como URL siguen sirviendo.
     @Column(
-            length = 500
+            columnDefinition = "MEDIUMTEXT"
     )
     private String photo;
 

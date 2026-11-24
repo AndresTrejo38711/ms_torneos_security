@@ -23,13 +23,16 @@ public abstract class BaseProfileDTO {
     )
     private String phone;
 
+    // HU-SE-02: la foto llega como imagen pequeña en texto ("data:image/jpeg;base64,..."), con las mismas
+    // reglas de ms_torneos_deportiva (common/validation/image.ts). No se aceptan SVG: pueden llevar
+    // código adentro. Una URL también vale, para que un perfil que la tenía de antes se pueda guardar.
     @Size(
-            max = 500,
-            message = "La URL de la fotografía debe tener máximo 500 caracteres"
+            max = 90_000,
+            message = "La fotografía es demasiado grande: debe llegar reducida"
     )
     @Pattern(
-            regexp = "^https?://\\S+$",
-            message = "La fotografía debe ser una URL válida que empiece por http:// o https://"
+            regexp = "^(data:image/(jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}|https?://\\S{1,493})$",
+            message = "La fotografía debe ser una imagen JPG, PNG o WEBP"
     )
     private String photo;
 
